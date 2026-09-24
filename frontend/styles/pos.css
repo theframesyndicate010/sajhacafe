@@ -1,0 +1,149 @@
+/* Point-of-sale layout, menu selection, and current order card. */
+
+.pos {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 440px;
+  align-items: start;
+  gap: 18px;
+}
+
+.pos-search {
+  max-width: 440px;
+  margin-top: 0;
+}
+
+.pos-search input {
+  width: 100%;
+}
+
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.menu-item {
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: var(--card-shadow);
+  text-align: left;
+}
+
+.menu-item:hover {
+  border-color: #7aa0d6;
+}
+
+.order {
+  position: sticky;
+  top: 18px;
+  align-self: start;
+}
+
+.order-details {
+  display: grid;
+  gap: 10px;
+}
+
+.order-details .field {
+  margin: 0;
+}
+
+.order-details input,
+.order-details select {
+  width: 100%;
+}
+
+.manual-item {
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px dashed #aebfd3;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.manual-item .form-row {
+  gap: 8px;
+}
+
+.manual-item .field {
+  margin: 8px 0 0;
+}
+
+.manual-item .btn {
+  margin-bottom: 0;
+}
+
+.order-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.qty {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.qty button {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #cfd8e6;
+  border-radius: 5px;
+  background: #f8fafc;
+}
+
+.total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+/* Laptop: retain four menu cards and a wide current-order panel. */
+@media (min-width: 901px) and (max-width: 1600px) {
+  .menu-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .pos {
+    grid-template-columns: 1fr;
+  }
+
+  .order {
+    position: static;
+  }
+
+  .menu-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .menu-item {
+    min-height: 88px;
+    padding: 12px;
+  }
+
+  .menu-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .form-row > .btn {
+    width: 100%;
+  }
+
+  .tabs {
+    gap: 6px;
+  }
+
+  .tab {
+    padding: 7px 10px;
+    font-size: 0.78rem;
+  }
+}

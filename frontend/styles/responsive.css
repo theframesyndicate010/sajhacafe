@@ -1,0 +1,38 @@
+/* Shared responsive overrides not specific to a feature. */
+
+@media (max-width: 900px) {
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .kitchen {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .cafe-page > .grid:not(.stats) {
+    grid-template-columns: 1fr !important;
+  }
+
+  .topbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .invoice-meta {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .stats,
+  .kitchen {
+    grid-template-columns: 1fr;
+  }
+
+  .cafe-page {
+    padding: 0;
+  }
+
+  .page-title {
+    font-size: 1.25rem;
+  }
+}

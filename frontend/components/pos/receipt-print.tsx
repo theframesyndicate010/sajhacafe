@@ -1,0 +1,30 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api/client";
+
+export function ReceiptPrint({ receiptId }: { receiptId: string }) {
+  const orderQuery = useQuery({ queryKey: ["order", receiptId], queryFn: () => api.order(receiptId) });
+  const settingsQuery = useQuery({ queryKey: ["settings"], queryFn: api.settings.get });
+  const order = orderQuery.data;
+  const settings = settingsQuery.data;
+  useEffect(() => { if (order) { const printTimer = window.setTimeout(() => window.print(), 500); return () => window.clearTimeout(printTimer); } }, [order]);
+  if (orderQuery.isLoading || settingsQuery.isLoading) return <section className="card"><p className="muted">Loading receipt…</p></section>;
+  if (!order || orderQuery.error) return <section className="card"><h1 className="page-title">Receipt not found</h1><p className="muted">This order is not available in the active cafe.</p><Link className="btn" href="/pos">Back to POS</Link></section>;
+  const payments = order.payments ?? [];
+  const paid = payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+  return (
+    <main className="receipt-page">
+      <div className="receipt-print-actions print-hidden"><Link className="btn secondary" href="/pos">Back to POS</Link><button className="btn" onClick={() => window.print()} type="button">Print bill</button></div>
+      <article className="receipt-paper">
+        <header className="receipt-heading"><h1>{settings?.businessName ?? order.table?.tableNumber ?? "Cafe"}</h1>{settings?.address && <p>{settings.address}</p>}{(settings?.phone || settings?.email) && <p>{[settings.phone, settings.email].filter(Boolean).join(" · ")}</p>}<p>Payment receipt</p><small>{new Date(order.createdAt ?? Date.now()).toLocaleString()}</small></header>
+        <div className="receipt-meta"><span>Bill</span><strong>{order.orderNumber}</strong><span>Table</span><strong>{order.table?.tableNumber ?? "Takeaway"}</strong><span>Customer</span><strong>{order.customer?.name ?? "Walk-in customer"}</strong></div>
+        <table className="receipt-items"><thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead><tbody>{order.items.map((item) => <tr key={item.id}><td>{item.itemName}</td><td>{item.quantity}</td><td>NPR {Number(item.totalAmount).toLocaleString()}</td></tr>)}</tbody></table>
+        <div className="receipt-totals"><div><span>Subtotal</span><span>NPR {Number(order.subtotal).toLocaleString()}</span></div><div><span>Tax</span><span>NPR {Number(order.taxAmount).toLocaleString()}</span></div><div className="receipt-grand-total"><strong>Total</strong><strong>NPR {Number(order.totalAmount).toLocaleString()}</strong></div>{payments.map((payment) => <div key={payment.id}><span>Payment ({payment.method}){payment.referenceNumber ? ` · ${payment.referenceNumber}` : ""}</span><span>NPR {Number(payment.amount).toLocaleString()}</span></div>)}{paid < Number(order.totalAmount) && <div className="receipt-due"><strong>Balance due</strong><strong>NPR {(Number(order.totalAmount) - paid).toLocaleString()}</strong></div>}</div>
+        <footer className="receipt-footer">Thank you. We hope to see you again.</footer>
+      </article>
+    </main>
+  );
+}

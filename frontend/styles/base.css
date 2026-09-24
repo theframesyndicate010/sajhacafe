@@ -1,0 +1,183 @@
+/* Shared application layout and reusable UI primitives. */
+
+.cafe-page {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 4px;
+}
+
+.page-title {
+  margin: 0 0 5px;
+  color: var(--text-dark);
+  font-size: 1.45rem;
+  font-weight: 750;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.card {
+  padding: 18px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--card-bg);
+  box-shadow: var(--card-shadow);
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+.stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.stat strong {
+  display: block;
+  margin: 10px 0 4px;
+  color: var(--primary-blue);
+  font-size: 24px;
+}
+
+.btn {
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--primary-blue);
+  color: #fff;
+  font-weight: 700;
+}
+
+.btn:hover {
+  background: var(--primary-blue-dark);
+}
+
+.btn.secondary {
+  background: #eaf0f7;
+  color: #334155;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.tag {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 12px 8px;
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+  font-size: 14px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.field input,
+.field select,
+.field textarea {
+  padding: 9px 10px;
+  border: 1px solid #bcc9d8;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.error {
+  color: #dc2626;
+  font-size: 13px;
+}
+
+.login {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 20px;
+  background: var(--header-bg);
+}
+
+.login-card {
+  width: min(400px, 100%);
+  padding: 32px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 15px 35px rgba(13, 27, 74, 0.25);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.tab {
+  padding: 8px 12px;
+  border: 1px solid #cfd8e6;
+  border-radius: 20px;
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 600;
+}
+
+.tab.active {
+  border-color: #0f172a;
+  background: #0f172a;
+  color: #fff;
+}
+
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+}
+
+.form-row .field {
+  flex: 1;
+  min-width: 140px;
+}
+
+.empty {
+  padding: 45px 15px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.kitchen {
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  align-items: start;
+}
+
+.column {
+  min-height: 450px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #eaf0f7;
+}
+
+.kot {
+  margin: 10px 0;
+}
