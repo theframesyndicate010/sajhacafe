@@ -7,4 +7,3 @@ coverage/
 .prettierrc
 test
 !test/
-seed.ts
