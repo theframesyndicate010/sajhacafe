@@ -30,8 +30,9 @@ export class RecipeInventoryService {
         where: { tenantId, menuItemId: item.menuItemId, isActive: true },
         include: { items: true },
       });
-      if (!recipes.length)
-        throw new BadRequestException(`No active recipe configured for ${item.itemName}`);
+      // A menu item without a direct inventory link or recipe is not stock-tracked.
+      // It should still be sellable; only configured inventory requirements are deducted.
+      if (!recipes.length) continue;
       for (const recipeItem of recipes[0].items)
         requirements.set(
           recipeItem.inventoryItemId,
