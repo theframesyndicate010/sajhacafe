@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
 import { PermissionGuard } from '../permissions/permission.guard';
@@ -33,6 +33,12 @@ export class InventoryController {
   @RequirePermission('inventory.adjust')
   update(@Param('id') id: string, @Body() dto: UpdateInventoryDto, @Req() request: Request) {
     return this.inventory.update(id, dto, request.tenantId!);
+  }
+
+  @Delete(':id')
+  @RequirePermission('inventory.adjust')
+  deactivate(@Param('id') id: string, @Req() request: Request) {
+    return this.inventory.deactivate(id, request.tenantId!);
   }
 
   @Get(':id/movements')

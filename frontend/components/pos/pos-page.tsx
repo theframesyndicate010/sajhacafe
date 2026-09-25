@@ -43,6 +43,8 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
   const selectedBill = openBills.find((bill) => bill.id === selectedBillId) ?? null;
   const selectedBillPaid = selectedBill?.payments?.reduce((sum, payment) => sum + Number(payment.amount), 0) ?? 0;
   const selectedBillDue = selectedBill ? Math.max(Number(selectedBill.totalAmount) - selectedBillPaid, 0) : 0;
+  const pendingOrderPaid = pendingOrderQuery.data?.payments?.filter((payment) => payment.status === "COMPLETED").reduce((sum, payment) => sum + Number(payment.amount), 0) ?? 0;
+  const pendingOrderDue = pendingOrderQuery.data ? Math.max(Number(pendingOrderQuery.data.totalAmount) - pendingOrderPaid, 0) : 0;
 
   useEffect(() => { setSelectedBillId(initialBillId); }, [initialBillId]);
 
@@ -86,13 +88,15 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
       await api.sendOrderToKitchen(order.id);
       return order;
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       if (cashier && selectedBill) {
         clear();
         setOrderId(null);
-        void queryClient.invalidateQueries({ queryKey: ["bills"] });
-        void queryClient.invalidateQueries({ queryKey: ["orders"] });
-        router.push(`/cashier/bills/${encodeURIComponent(selectedBill.id)}`);
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["bills"] }),
+          queryClient.invalidateQueries({ queryKey: ["orders"] }),
+        ]);
+        router.push(`/cashier/pos?billId=${encodeURIComponent(selectedBill.id)}`);
         return;
       }
       setOrderId(result.id);
@@ -117,7 +121,7 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
         const billOrders = selectedBill.orders ?? await Promise.all((selectedBill.orderIds ?? []).map((id) => api.order(id)));
         if (!billOrders.length) throw new Error("This bill has no payable orders. Refresh the bills list and try again.");
         for (const billOrder of billOrders) {
-          const paidOnOrder = billOrder.payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+          const paidOnOrder = (billOrder.payments ?? []).reduce((sum, payment) => sum + Number(payment.amount), 0);
           let orderDue = Math.max(Number(billOrder.totalAmount) - paidOnOrder, 0);
           if (!orderDue) continue;
           const allocation: typeof tenderParts = [];
@@ -135,9 +139,11 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
         return selectedBill.id;
       }
       const order = orderId ? await api.order(orderId) : await api.createOrder({ orderType: "DINE_IN", tableId: apiTables.find((entry) => entry.tableNumber === table)?.id, items: items.map((item) => ({ menuItemId: item.id, quantity: item.quantity, notes: item.note })) });
+      const alreadyPaid = (order.payments ?? []).filter((payment) => payment.status === "COMPLETED").reduce((sum, payment) => sum + Number(payment.amount), 0);
+      const balanceDue = Math.max(Number(order.totalAmount) - alreadyPaid, 0);
       const paid = paymentTotal;
-      if (paid < Number(order.totalAmount)) throw new Error(`Payment is short by NPR ${Number(order.totalAmount) - paid}`);
-      let paymentBalance = Number(order.totalAmount);
+      if (paid < balanceDue) throw new Error(`Payment is short by NPR ${balanceDue - paid}`);
+      let paymentBalance = balanceDue;
       const payments = enteredPayments.map((part) => {
         const amount = Math.min(part.amount, paymentBalance);
         paymentBalance -= amount;
@@ -224,7 +230,7 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
           amountReceived={amountReceived}
           customer={customer}
           cashierBill={cashier ? selectedBill : undefined}
-          billDue={selectedBillDue}
+          billDue={selectedBill ? selectedBillDue : pendingOrderId ? pendingOrderDue : total}
           errorMessage={errorMessage}
           isCheckingOut={checkoutMutation.isPending}
           isSendingKot={sendMutation.isPending}

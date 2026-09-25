@@ -80,7 +80,7 @@ export function CurrentOrder({
   const cashPaid = Number(amountReceived) || 0;
   const onlinePaid = Number(onlineAmountReceived) || 0;
   const paid = paymentMethod === "Split" ? cashPaid + onlinePaid : cashPaid;
-  const checkoutTotal = cashierBill ? billDue : total;
+  const checkoutTotal = billDue;
   const canAddManualItem = manualName.trim() && Number(manualPrice) > 0;
   const hasItems = items.length > 0;
 
@@ -239,14 +239,14 @@ export function CurrentOrder({
 
       {cashierBill ? <div className="form-row cashier-bill-actions" style={{ marginTop: 14 }}>
         {hasItems
-          ? <button className="btn" disabled={isSendingKot} onClick={onAddToBill} type="button">{isSendingKot ? "Saving and sending…" : "Add items & print bill"}</button>
+          ? <button className="btn" disabled={isSendingKot} onClick={onAddToBill} type="button">{isSendingKot ? "Saving and sending…" : "Add items to bill"}</button>
           : <><button className="btn" disabled={!billDue || isCheckingOut} onClick={onCheckout} type="button">{isCheckingOut ? "Processing…" : `Checkout · NPR ${billDue.toLocaleString()}`}</button><button className="btn secondary" disabled={isSendingKot} onClick={onPrintBill} type="button">Print bill</button></>}
       </div> : <div className="form-row" style={{ marginTop: 14 }}>
         <button className="btn secondary" disabled={!hasItems || isSendingKot || Boolean(orderId)} onClick={onSendKot} type="button">
           {isSendingKot ? "Sending…" : orderId ? "KOT sent" : "Send to kitchen"}
         </button>
-        <button className="btn" disabled={!hasItems || isCheckingOut} onClick={onCheckout} type="button">
-          {isCheckingOut ? "Processing…" : `Checkout · NPR ${total}`}
+        <button className="btn" disabled={!hasItems || isCheckingOut || checkoutTotal <= 0} onClick={onCheckout} type="button">
+          {isCheckingOut ? "Processing…" : `Checkout · NPR ${checkoutTotal}`}
         </button>
       </div>
       }

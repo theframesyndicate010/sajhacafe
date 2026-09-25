@@ -48,6 +48,15 @@ export class InventoryService {
     return this.prisma.inventoryItem.findFirstOrThrow({ where: { id, tenantId } });
   }
 
+  async deactivate(id: string, tenantId: string) {
+    const result = await this.prisma.inventoryItem.updateMany({
+      where: { id, tenantId, isActive: true },
+      data: { isActive: false },
+    });
+    if (!result.count) throw new NotFoundException('Inventory item not found');
+    return { id, isActive: false };
+  }
+
   movements(id: string, tenantId: string) {
     return this.prisma.stockMovement.findMany({
       where: { tenantId, inventoryItemId: id },
