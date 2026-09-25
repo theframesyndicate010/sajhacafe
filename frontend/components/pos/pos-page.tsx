@@ -41,6 +41,8 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
   const tables = useMemo(() => apiTables.map((entry) => entry.tableNumber), [apiTables]);
   const openBills = (billsQuery.data ?? []).filter((bill) => bill.status === "OPEN");
   const selectedBill = openBills.find((bill) => bill.id === selectedBillId) ?? null;
+  const selectedBillPaid = selectedBill?.payments?.reduce((sum, payment) => sum + Number(payment.amount), 0) ?? 0;
+  const selectedBillDue = selectedBill ? Math.max(Number(selectedBill.totalAmount) - selectedBillPaid, 0) : 0;
 
   useEffect(() => { setSelectedBillId(initialBillId); }, [initialBillId]);
 
@@ -101,15 +103,46 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
     mutationFn: async () => {
       const cashAmount = Number(amountReceived) || 0;
       const onlineAmount = Number(onlineAmountReceived) || 0;
-      const payments = paymentMethod === "Split"
+      const enteredPayments = paymentMethod === "Split"
         ? [
             { method: "CASH" as PaymentMethod, amount: cashAmount },
             { method: toPaymentMethod(onlinePaymentMethod), amount: onlineAmount, referenceNumber: reference },
           ].filter((part) => part.amount > 0)
         : [{ method: toPaymentMethod(paymentMethod), amount: cashAmount, referenceNumber: paymentMethod === "Cash" ? undefined : reference }];
+      const paymentTotal = enteredPayments.reduce((sum, part) => sum + part.amount, 0);
+      if (selectedBill) {
+        if (paymentTotal < selectedBillDue) throw new Error(`Payment is short by NPR ${selectedBillDue - paymentTotal}`);
+        let remainingPayment = selectedBillDue;
+        const tenderParts = enteredPayments.map((part) => ({ ...part, amount: Math.min(part.amount, selectedBillDue) }));
+        const billOrders = selectedBill.orders ?? await Promise.all((selectedBill.orderIds ?? []).map((id) => api.order(id)));
+        if (!billOrders.length) throw new Error("This bill has no payable orders. Refresh the bills list and try again.");
+        for (const billOrder of billOrders) {
+          const paidOnOrder = billOrder.payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+          let orderDue = Math.max(Number(billOrder.totalAmount) - paidOnOrder, 0);
+          if (!orderDue) continue;
+          const allocation: typeof tenderParts = [];
+          for (const part of tenderParts) {
+            const amount = Math.min(part.amount, orderDue, remainingPayment);
+            if (amount > 0) allocation.push({ ...part, amount });
+            orderDue -= amount;
+            remainingPayment -= amount;
+            part.amount -= amount;
+            if (!orderDue || !remainingPayment) break;
+          }
+          if (allocation.length === 1) await api.createPayment(billOrder.id, allocation[0]);
+          else if (allocation.length > 1) await api.createSplitPayment(billOrder.id, allocation);
+        }
+        return selectedBill.id;
+      }
       const order = orderId ? await api.order(orderId) : await api.createOrder({ orderType: "DINE_IN", tableId: apiTables.find((entry) => entry.tableNumber === table)?.id, items: items.map((item) => ({ menuItemId: item.id, quantity: item.quantity, notes: item.note })) });
-      const paid = payments.reduce((sum, part) => sum + part.amount, 0);
+      const paid = paymentTotal;
       if (paid < Number(order.totalAmount)) throw new Error(`Payment is short by NPR ${Number(order.totalAmount) - paid}`);
+      let paymentBalance = Number(order.totalAmount);
+      const payments = enteredPayments.map((part) => {
+        const amount = Math.min(part.amount, paymentBalance);
+        paymentBalance -= amount;
+        return { ...part, amount };
+      }).filter((part) => part.amount > 0);
       if (paymentMethod === "Split") await api.createSplitPayment(order.id, payments);
       else await api.createPayment(order.id, payments[0]);
       return selectedBill ? selectedBill.id : order.id;
@@ -120,6 +153,9 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
       setAmountReceived("");
       setOnlineAmountReceived("");
       setReference("");
+      void queryClient.invalidateQueries({ queryKey: ["bills"] });
+      void queryClient.invalidateQueries({ queryKey: ["tables"] });
+      void queryClient.invalidateQueries({ queryKey: ["orders"] });
       router.push(cashier ? `/cashier/bills/${encodeURIComponent(completedOrderId)}` : `/receipt/${completedOrderId}`);
     },
   });
@@ -188,6 +224,7 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
           amountReceived={amountReceived}
           customer={customer}
           cashierBill={cashier ? selectedBill : undefined}
+          billDue={selectedBillDue}
           errorMessage={errorMessage}
           isCheckingOut={checkoutMutation.isPending}
           isSendingKot={sendMutation.isPending}

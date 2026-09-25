@@ -8,6 +8,7 @@ type CurrentOrderProps = {
   amountReceived: string;
   customer: string;
   cashierBill?: Bill | null;
+  billDue?: number;
   errorMessage?: string;
   isCheckingOut: boolean;
   isSendingKot: boolean;
@@ -44,6 +45,7 @@ export function CurrentOrder({
   amountReceived,
   customer,
   cashierBill,
+  billDue = 0,
   errorMessage,
   isCheckingOut,
   isSendingKot,
@@ -78,6 +80,7 @@ export function CurrentOrder({
   const cashPaid = Number(amountReceived) || 0;
   const onlinePaid = Number(onlineAmountReceived) || 0;
   const paid = paymentMethod === "Split" ? cashPaid + onlinePaid : cashPaid;
+  const checkoutTotal = cashierBill ? billDue : total;
   const canAddManualItem = manualName.trim() && Number(manualPrice) > 0;
   const hasItems = items.length > 0;
 
@@ -85,7 +88,7 @@ export function CurrentOrder({
     <aside className="card order">
       <h2 style={{ marginTop: 0 }}>{cashierBill ? `Bill #${cashierBill.billNumber}` : "Current order"}</h2>
 
-      {cashierBill && <div className="cashier-selected-bill"><span>{cashierBill.table?.tableNumber ?? "Takeaway"} · {cashierBill.orderCount} order{cashierBill.orderCount === 1 ? "" : "s"}</span><strong>Current total · NPR {Number(cashierBill.totalAmount).toLocaleString()}</strong></div>}
+      {cashierBill && <div className="cashier-selected-bill"><span>{cashierBill.table?.tableNumber ?? "Takeaway"} · {cashierBill.orderCount} order{cashierBill.orderCount === 1 ? "" : "s"}</span><strong>Current total · NPR {Number(cashierBill.totalAmount).toLocaleString()}</strong><strong>Balance due · NPR {billDue.toLocaleString()}</strong></div>}
 
       {!cashierBill && <div className="order-details">
         <label className="field">
@@ -155,7 +158,7 @@ export function CurrentOrder({
       {cashierBill && hasItems && <div className="total"><span>Additions</span><strong>NPR {total.toLocaleString()}</strong></div>}
       {!cashierBill && <><div className="total"><span>Subtotal (before VAT)</span><strong>NPR {subtotal}</strong></div><div className="total"><span>VAT included (13%)</span><span>NPR {total - subtotal}</span></div><div className="total" style={{ fontSize: 18 }}><strong>Total</strong><strong>NPR {total}</strong></div></>}
 
-      {!cashierBill && <>
+      {(!cashierBill || !hasItems) && <>
       <hr style={{ border: 0, borderTop: "1px solid var(--border-color)", margin: "18px 0 12px" }} />
       <strong>Checkout</strong>
 
@@ -195,7 +198,7 @@ export function CurrentOrder({
             <input
               min="0"
               onChange={(event) => onOnlineAmountReceivedChange(event.target.value)}
-              placeholder={`Remaining NPR ${Math.max(total - cashPaid, 0)}`}
+              placeholder={`Remaining NPR ${Math.max(checkoutTotal - cashPaid, 0)}`}
               type="number"
               value={onlineAmountReceived}
             />
@@ -205,8 +208,8 @@ export function CurrentOrder({
             <input value={reference} onChange={(event) => onReferenceChange(event.target.value)} placeholder="Transaction reference" />
           </label>
           <p className="split-payment-summary">
-            Received NPR {paid} · Remaining NPR {Math.max(total - paid, 0)}
-            {paid > total && ` · Change NPR ${paid - total}`}
+            Received NPR {paid} · Remaining NPR {Math.max(checkoutTotal - paid, 0)}
+            {paid > checkoutTotal && ` · Change NPR ${paid - checkoutTotal}`}
           </p>
         </div>
       ) : (
@@ -215,7 +218,7 @@ export function CurrentOrder({
           <input
             min="0"
             onChange={(event) => onAmountReceivedChange(event.target.value)}
-            placeholder={`NPR ${total}`}
+            placeholder={`NPR ${checkoutTotal}`}
             type="number"
             value={amountReceived}
           />
@@ -229,7 +232,7 @@ export function CurrentOrder({
         </label>
       )}
 
-      {paymentMethod === "Cash" && <p className="muted" style={{ fontSize: 13 }}>Change: NPR {Math.max(paid - total, 0)}</p>}
+      {paymentMethod === "Cash" && <p className="muted" style={{ fontSize: 13 }}>Change: NPR {Math.max(paid - checkoutTotal, 0)}</p>}
       </>}
       {errorMessage && <p className="error">{errorMessage}</p>}
       {orderId && <p className="tag">KOT sent · Order #{orderId}</p>}
@@ -237,7 +240,7 @@ export function CurrentOrder({
       {cashierBill ? <div className="form-row cashier-bill-actions" style={{ marginTop: 14 }}>
         {hasItems
           ? <button className="btn" disabled={isSendingKot} onClick={onAddToBill} type="button">{isSendingKot ? "Saving and sending…" : "Add items & print bill"}</button>
-          : <button className="btn" disabled={isSendingKot} onClick={onPrintBill} type="button">Print bill</button>}
+          : <><button className="btn" disabled={!billDue || isCheckingOut} onClick={onCheckout} type="button">{isCheckingOut ? "Processing…" : `Checkout · NPR ${billDue.toLocaleString()}`}</button><button className="btn secondary" disabled={isSendingKot} onClick={onPrintBill} type="button">Print bill</button></>}
       </div> : <div className="form-row" style={{ marginTop: 14 }}>
         <button className="btn secondary" disabled={!hasItems || isSendingKot || Boolean(orderId)} onClick={onSendKot} type="button">
           {isSendingKot ? "Sending…" : orderId ? "KOT sent" : "Send to kitchen"}
