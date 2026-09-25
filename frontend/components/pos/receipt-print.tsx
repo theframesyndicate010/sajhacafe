@@ -2,19 +2,29 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
-import { usePathname } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { usePathname, useRouter } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 
 export function ReceiptPrint({ receiptId }: { receiptId: string }) {
   const pathname = usePathname();
   const isWaiter = pathname.startsWith("/waiter/");
-  const backPath = pathname.startsWith("/waiter/") ? "/waiter" : pathname.startsWith("/cashier/") ? "/cashier/bills" : "/pos";
+  const backPath = pathname.startsWith("/waiter/") ? "/waiter/bills" : pathname.startsWith("/cashier/") ? "/cashier/bills" : "/pos";
+  const router = useRouter();
   const queryClient = useQueryClient();
   const orderQuery = useQuery({ queryKey: ["bill", receiptId], queryFn: () => api.bill(receiptId) });
   const settingsQuery = useQuery({ queryKey: ["settings"], queryFn: api.settings.get });
   const order = orderQuery.data;
   const settings = settingsQuery.data;
+  const closeMutation = useMutation({
+    mutationFn: () => api.closeBill(receiptId),
+    onSuccess: (closedBill) => {
+      queryClient.setQueryData(["bill", receiptId], closedBill);
+      void queryClient.invalidateQueries({ queryKey: ["bills"] });
+      void queryClient.invalidateQueries({ queryKey: ["tables"] });
+      router.refresh();
+    },
+  });
   useEffect(() => {
     if (!order) return;
     const onAfterPrint = () => {
@@ -35,7 +45,8 @@ export function ReceiptPrint({ receiptId }: { receiptId: string }) {
   const paid = payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
   return (
     <main className="receipt-page">
-      <div className="receipt-print-actions print-hidden"><Link className="btn secondary" href={backPath}>{backPath === "/waiter" ? "Back to bills" : backPath === "/cashier/bills" ? "Back to bills" : "Back to POS"}</Link><button className="btn" onClick={() => window.print()} type="button">Print bill</button></div>
+      <div className="receipt-print-actions print-hidden"><Link className="btn secondary" href={backPath}>{backPath === "/pos" ? "Back to POS" : "Back to bills"}</Link>{isWaiter && order.status === "OPEN" && <button className="btn secondary" disabled={closeMutation.isPending} onClick={() => closeMutation.mutate()} type="button">{closeMutation.isPending ? "Closing table…" : "Close table"}</button>}{isWaiter && order.status === "CLOSED" && <span className="muted">Table closed · ready for a new customer</span>}<button className="btn" onClick={() => window.print()} type="button">Print bill</button></div>
+      {closeMutation.error && <p className="error print-hidden" role="alert">{closeMutation.error instanceof Error ? closeMutation.error.message : "Unable to close table."}</p>}
       <article className="receipt-paper">
         <header className="receipt-heading">{settings?.logo && <img alt={`${settings.businessName} logo`} height={72} src={settings.logo} width={72} />}<h1>{settings?.businessName ?? order.table?.tableNumber ?? "Cafe"}</h1>{settings?.address && <p>{settings.address}</p>}{(settings?.phone || settings?.email) && <p>{[settings.phone, settings.email].filter(Boolean).join(" · ")}</p>}<p>Bill #{order.billNumber}</p><small>{new Date(order.createdAt ?? Date.now()).toLocaleString()}</small></header>
         <div className="receipt-meta"><span>Bill</span><strong>{order.billNumber}</strong><span>Table</span><strong>{order.table?.tableNumber ?? "Takeaway"}</strong><span>Customer</span><strong>{order.customer?.name ?? "Walk-in customer"}</strong></div>
