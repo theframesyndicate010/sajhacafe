@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Payment } from '@prisma/client';
 import { Request } from 'express';
 import { PrismaService } from '../common/prisma.service';
 import { RecipeInventoryService } from '../inventory/recipe-inventory.service';
@@ -98,7 +99,7 @@ export class PaymentsService {
         throw new BadRequestException('Payment exceeds balance');
       }
 
-      const records = [];
+      const records: Payment[] = [];
       for (const [index, payment] of payments.entries()) {
         records.push(
           await tx.payment.create({
