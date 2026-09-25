@@ -129,6 +129,24 @@ export class PaymentsService {
         },
       });
 
+      if (nextPaid >= Number(order.totalAmount)) {
+        const billLock = await tx.bill.findFirst({ where: { id: order.billId, tenantId }, select: { tableId: true } });
+        if (billLock?.tableId) {
+          await tx.$queryRaw`SELECT "id" FROM "RestaurantTable" WHERE "id" = ${billLock.tableId}::uuid AND "tenantId" = ${tenantId}::uuid FOR UPDATE`;
+        }
+        const bill = await tx.bill.findFirst({
+          where: { id: order.billId, tenantId, status: 'OPEN' },
+          include: { orders: { include: { payments: { where: { status: 'COMPLETED' }, select: { amount: true } } } } },
+        });
+        const isBillSettled = bill?.orders.every((billOrder) =>
+          billOrder.payments.reduce((sum, record) => sum + Number(record.amount), 0) + 0.001 >= Number(billOrder.totalAmount),
+        );
+        if (bill && isBillSettled) {
+          await tx.bill.updateMany({ where: { id: bill.id, tenantId, status: 'OPEN' }, data: { status: 'CLOSED', closedAt: new Date() } });
+          if (bill.tableId) await tx.restaurantTable.updateMany({ where: { id: bill.tableId, tenantId, status: 'OCCUPIED' }, data: { status: 'AVAILABLE' } });
+        }
+      }
+
       return records;
     });
   }

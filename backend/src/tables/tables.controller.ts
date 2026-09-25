@@ -40,7 +40,7 @@ export class TablesController {
       where: { tenantId: request.tenantId!, ...(status ? { status } : {}) },
       include: {
         orders: {
-          where: { status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+          where: { bill: { status: 'OPEN' } },
           select: { id: true, orderNumber: true, status: true },
         },
       },

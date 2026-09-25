@@ -20,6 +20,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { ReportsModule } from './reports/reports.module';
 import { AuditModule } from './audit/audit.module';
 import { SettingsModule } from './settings/settings.module';
+import { BillsModule } from './bills/bills.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -33,6 +34,7 @@ import { HealthController } from './health.controller';
     RecipesModule,
     TablesModule,
     OrdersModule,
+    BillsModule,
     KotModule,
     KitchenModule,
     PaymentsModule,

@@ -32,6 +32,11 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum BillStatus {
+  OPEN
+  CLOSED
+}
+
 enum KotStatus {
   PENDING
   PREPARING
@@ -101,6 +106,7 @@ model Tenant {
   tables RestaurantTable[]
   customers Customer[]
   orders Order[]
+  bills Bill[]
   orderItems OrderItem[]
   kots Kot[]
   kotItems KotItem[]
@@ -282,11 +288,29 @@ model RestaurantTable {
   status TableStatus @default(AVAILABLE)
   isActive Boolean @default(true)
   orders Order[]
+  bills Bill[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   tenant Tenant @relation(fields:[tenantId], references:[id], onDelete: Cascade)
   @@unique([tenantId, tableNumber])
   @@index([tenantId, isActive, status])
+}
+
+model Bill {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @db.Uuid
+  tableId String? @db.Uuid
+  billNumber BigInt @unique @default(autoincrement())
+  status BillStatus @default(OPEN)
+  printedAt DateTime?
+  closedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant Tenant @relation(fields:[tenantId], references:[id], onDelete: Cascade)
+  table RestaurantTable? @relation(fields:[tableId], references:[id], onDelete: SetNull)
+  orders Order[]
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, tableId, status])
 }
 
 model Customer {
@@ -312,6 +336,7 @@ model Order {
   orderNumber BigInt
   orderType OrderType
   tableId String? @db.Uuid
+  billId String @db.Uuid
   customerId String? @db.Uuid
   createdBy String @db.Uuid
   status OrderStatus @default(DRAFT)
@@ -326,6 +351,7 @@ model Order {
   cancelledBy String? @db.Uuid
   cancellationReason String?
   table RestaurantTable? @relation(fields:[tableId], references:[id])
+  bill Bill @relation(fields:[billId], references:[id], onDelete: Cascade)
   customer Customer? @relation(fields:[customerId], references:[id])
   creator User @relation("OrderCreator", fields:[createdBy], references:[id])
   canceller User? @relation("OrderCanceller", fields:[cancelledBy], references:[id])
@@ -339,6 +365,7 @@ model Order {
   tenant Tenant @relation(fields:[tenantId], references:[id], onDelete: Cascade)
   @@unique([tenantId, orderNumber])
   @@index([tenantId, createdAt, status, paymentStatus])
+  @@index([billId])
 }
 
 model OrderItem {

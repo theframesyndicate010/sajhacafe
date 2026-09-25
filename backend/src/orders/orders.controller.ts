@@ -47,6 +47,12 @@ export class OrdersController {
     return this.orders.updateStatus(id, dto.status, request.tenantId!);
   }
 
+  @Post(':id/serve')
+  @RequirePermission('orders.serve')
+  serve(@Param('id') id: string, @Req() request: Request) {
+    return this.orders.updateStatus(id, OrderStatus.SERVED, request.tenantId!);
+  }
+
   @Post(':id/send-to-kitchen')
   @RequirePermission('orders.send_to_kitchen')
   sendToKitchen(@Param('id') id: string, @Req() request: Request) {

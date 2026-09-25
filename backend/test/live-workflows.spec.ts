@@ -119,10 +119,52 @@ spec('live multi-tenant workflows (temporary fixtures)', () => {
     expect(orderResult.json.data.totalAmount).toBe(325.75);
     const kitchenResult = await call(`/orders/${orderResult.json.data.id}/send-to-kitchen`, { method: 'POST', cookie: waiterCookie });
     if (kitchenResult.status !== 201) throw new Error(`Kitchen submission failed: ${JSON.stringify(kitchenResult.json)}`);
+
+    const initialBills = await call('/bills', { cookie: waiterCookie });
+    expect(initialBills.status).toBe(200);
+    const firstBill = initialBills.json.data.find((bill: { tableId: string }) => bill.tableId === table.id);
+    expect(firstBill).toBeDefined();
+    expect(firstBill.status).toBe('OPEN');
+    const printed = await call(`/bills/${firstBill.id}/printed`, { method: 'POST', cookie: waiterCookie, body: { updatedAt: firstBill.updatedAt } });
+    expect(printed.status).toBe(201);
+    expect(printed.json.data.printedAt).toBeTruthy();
+
+    const secondOrder = await call('/orders', { method: 'POST', cookie: waiterCookie, body: { orderType: 'DINE_IN', tableId: table.id, items: [{ menuItemId: menuResult.json.data.id, quantity: 2 }] } });
+    expect(secondOrder.status).toBe(201);
+    const secondKitchenResult = await call(`/orders/${secondOrder.json.data.id}/send-to-kitchen`, { method: 'POST', cookie: waiterCookie });
+    expect(secondKitchenResult.status).toBe(201);
+    const mergedBillResult = await call(`/bills/${firstBill.id}`, { cookie: waiterCookie });
+    expect(mergedBillResult.status).toBe(200);
+    expect(mergedBillResult.json.data.orderCount).toBe(2);
+    expect(mergedBillResult.json.data.items).toHaveLength(2);
+    expect(mergedBillResult.json.data.totalAmount).toBe(977.25);
+    expect(mergedBillResult.json.data.printedAt).toBeNull();
+
     const paymentResult = await call(`/orders/${orderResult.json.data.id}/payments`, { method: 'POST', cookie: cashierCookie, body: { method: 'CASH', amount: 325.75 } });
     expect(paymentResult.status).toBe(201);
+    expect((await call(`/bills/${firstBill.id}`, { cookie: waiterCookie })).json.data.status).toBe('OPEN');
+    const secondPayment = await call(`/orders/${secondOrder.json.data.id}/payments`, { method: 'POST', cookie: cashierCookie, body: { method: 'CASH', amount: 651.5 } });
+    expect(secondPayment.status).toBe(201);
+    expect((await call(`/bills/${firstBill.id}`, { cookie: waiterCookie })).json.data.status).toBe('CLOSED');
+    expect((await call('/tables', { cookie: waiterCookie })).json.data.find((entry: { id: string }) => entry.id === table.id).status).toBe('AVAILABLE');
+
+    const nextSessionOrder = await call('/orders', { method: 'POST', cookie: waiterCookie, body: { orderType: 'DINE_IN', tableId: table.id, items: [{ menuItemId: menuResult.json.data.id, quantity: 1 }] } });
+    expect(nextSessionOrder.status).toBe(201);
+    const nextSessionBill = (await call('/bills', { cookie: waiterCookie })).json.data.find((bill: { tableId: string; status: string }) => bill.tableId === table.id && bill.status === 'OPEN');
+    expect(nextSessionBill).toBeDefined();
+    expect(nextSessionBill.id).not.toBe(firstBill.id);
+
+    const tableTwo = await call('/tables', { method: 'POST', cookie: adminCookie, body: { tableNumber: 'Table 2', capacity: 4 } });
+    expect(tableTwo.status).toBe(201);
+    const differentTableOrder = await call('/orders', { method: 'POST', cookie: waiterCookie, body: { orderType: 'DINE_IN', tableId: tableTwo.json.data.id, items: [{ menuItemId: menuResult.json.data.id, quantity: 1 }] } });
+    expect(differentTableOrder.status).toBe(201);
+    const differentTableBill = (await call('/bills', { cookie: waiterCookie })).json.data.find((bill: { tableId: string; status: string }) => bill.tableId === tableTwo.json.data.id && bill.status === 'OPEN');
+    expect(differentTableBill).toBeDefined();
+    expect(differentTableBill.id).not.toBe(nextSessionBill.id);
+    expect((await call('/bills', { cookie: otherWaiterCookie })).json.data).toHaveLength(0);
+
     const stockedAfterSale = await call('/inventory', { cookie: adminCookie });
-    expect(Number(stockedAfterSale.json.data.find((item: { id: string }) => item.id === inventory.id).currentQuantity)).toBe(49);
+    expect(Number(stockedAfterSale.json.data.find((item: { id: string }) => item.id === inventory.id).currentQuantity)).toBe(47);
     await call(`/inventory/${inventory.id}`, { method: 'PATCH', cookie: adminCookie, body: { minimumQuantity: 49 } });
     const lowStock = await call('/inventory/low-stock', { cookie: adminCookie });
     expect(lowStock.json.data.some((item: { id: string }) => item.id === inventory.id)).toBe(true);
@@ -147,5 +189,5 @@ spec('live multi-tenant workflows (temporary fixtures)', () => {
     expect((await call('/settings', { method: 'PATCH', cookie: adminCookie, body: { logo } })).status).toBe(200);
     expect((await call('/settings', { cookie: waiterCookie })).json.data.logo).toBe(logo);
     expect((await call('/settings', { method: 'PATCH', cookie: adminCookie, body: { logo: null } })).status).toBe(200);
-  }, 150_000);
+  }, 300_000);
 });

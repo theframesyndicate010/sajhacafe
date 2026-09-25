@@ -158,7 +158,8 @@
 .waiter-order-actions .btn:not(.secondary):hover { background: var(--primary-blue-dark); }
 .waiter-view-bill { display: inline-block; margin-top: 12px; color: #24518d; font-size: 13px; font-weight: 700; text-decoration: none; }
 .waiter-bill-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 14px; margin-top: 20px; }
-.waiter-bill-card { display: grid; min-width: 0; gap: 10px; border-color: var(--border-color); border-radius: 14px; color: inherit; background: var(--card-bg); text-decoration: none; box-shadow: var(--card-shadow); transition: transform .18s, box-shadow .18s; }
+.waiter-bill-card { position: relative; display: grid; min-width: 0; gap: 10px; border-color: var(--border-color); border-radius: 14px; color: inherit; background: var(--card-bg); text-decoration: none; box-shadow: var(--card-shadow); transition: transform .18s, box-shadow .18s; }
+.bill-printed-check { position: absolute; top: 12px; right: 14px; display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; background: #dcfce7; color: #15803d !important; font-size: 19px !important; font-weight: 800; }
 .waiter-bill-card:hover { transform: translateY(-2px); box-shadow: 0 12px 26px #34445a14; }
 .waiter-bill-card h2 { margin: 4px 0 0; }
 .waiter-bill-card > span:not(.waiter-view-bill) { color: #6c7b91; font-size: 13px; }

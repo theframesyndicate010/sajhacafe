@@ -1,5 +1,5 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
-import { OrderStatus, OrderType } from '@prisma/client';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { OrderStatus, OrderType, Prisma } from '@prisma/client';
 import { Request } from 'express';
 import { PrismaService } from '../common/prisma.service';
 import { calculateOrderTotals } from '../common/domain/order-calculations';
@@ -48,14 +48,19 @@ export class OrdersService {
         throw new BadRequestException('One or more menu items are inactive or missing');
       }
 
-      if (dto.tableId) {
-      const table = await tx.restaurantTable.findFirst({ where: { id: dto.tableId, tenantId, isActive: true } });
-      if (dto.tableId && !table) throw new BadRequestException('Table is inactive or missing');
-      const conflict = await tx.order.findFirst({
-          where: { tenantId, tableId: dto.tableId, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
-        });
-        if (conflict) throw new ConflictException('Table is already occupied');
+      let tableId: string | null = dto.tableId ?? null;
+      let bill: { id: string } | null = null;
+      if (tableId) {
+        const table = await tx.restaurantTable.findFirst({ where: { id: tableId, tenantId, isActive: true } });
+        if (!table) throw new BadRequestException('Table is inactive or missing');
+        // Serialize order submissions per table. This lets concurrent requests
+        // reuse one open bill rather than racing to create two.
+        await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "RestaurantTable" WHERE "id" = ${tableId}::uuid AND "tenantId" = ${tenantId}::uuid FOR UPDATE`);
+        bill = await tx.bill.findFirst({ where: { tenantId, tableId, status: 'OPEN' } });
       }
+      if (!bill) bill = await tx.bill.create({ data: { tenantId, tableId, status: 'OPEN' } });
+      else await tx.bill.update({ where: { id: bill.id }, data: { printedAt: null } });
+      if (tableId) await tx.restaurantTable.updateMany({ where: { id: tableId, tenantId }, data: { status: 'OCCUPIED' } });
       if (dto.customerId) {
         const customer = await tx.customer.findFirst({ where: { id: dto.customerId, tenantId, isActive: true } });
         if (!customer) throw new BadRequestException('Customer is inactive or missing');
@@ -85,7 +90,8 @@ export class OrdersService {
           tenantId,
           orderNumber: BigInt(Date.now()),
           orderType: dto.orderType,
-          tableId: dto.tableId,
+          tableId,
+          billId: bill.id,
           customerId: dto.customerId,
           createdBy: request.userId!,
           status: 'DRAFT',
