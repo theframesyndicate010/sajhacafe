@@ -13,6 +13,18 @@
 .cashier-main>section { width:100%; max-width:1480px; box-sizing:border-box; margin:0 auto; padding:28px; }
 .cashier-checkout-banner { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; padding:12px 15px; border:1px solid #bfcee9; border-radius:10px; color:var(--primary-blue); background:#eaf0ff; }
 .cashier-checkout-banner span { font-size:13px; }
+.cashier-open-bills { display:grid; gap:12px; margin-top:20px; padding:16px; border:1px solid var(--border-color); border-radius:12px; background:var(--card-bg); }
+.cashier-open-bills-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.cashier-open-bills-heading h2 { margin:0; font-size:17px; }
+.cashier-open-bills-heading>span { color:var(--text-muted); font-size:13px; }
+.cashier-open-bills-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr)); gap:10px; }
+.cashier-open-bill { display:flex; min-width:0; align-items:center; justify-content:space-between; gap:12px; padding:12px; border:1px solid var(--border-color); border-radius:10px; color:var(--text-dark); background:var(--page-bg); font:inherit; text-align:left; cursor:pointer; }
+.cashier-open-bill>span { display:grid; gap:4px; }
+.cashier-open-bill small { color:var(--text-muted); }
+.cashier-open-bill>strong { white-space:nowrap; }
+.cashier-open-bill.selected { border-color:var(--primary-blue); box-shadow:0 0 0 2px #2457a51a; }
+.cashier-selected-bill { display:grid; gap:7px; margin-bottom:14px; padding:12px; border-radius:9px; background:#eaf0ff; color:var(--primary-blue); font-size:13px; }
+.cashier-bill-actions .btn { width:100%; }
 .cashier-pending-page h1 { margin:0 0 6px; }
 .cashier-pending-page .eyebrow { margin:0 0 8px; color:var(--primary-blue); font-size:11px; font-weight:800; letter-spacing:.13em; }
 .cashier-pending-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(290px,100%),1fr)); gap:14px; margin-top:20px; }

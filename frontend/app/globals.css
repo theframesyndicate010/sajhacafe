@@ -730,19 +730,27 @@
 .bills-archive-filters input,.bills-archive-filters select,.due-list-filters input { width: 100%; min-width: 0; height: 40px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-dark); background: var(--card-bg); font: inherit; font-size: 13px; }
 .bills-archive-table-wrap { width: 100%; min-width: 0; overflow-x: auto; overscroll-behavior-inline: contain; border: 1px solid var(--border-color); border-radius: 12px; background: var(--card-bg); box-shadow: 0 5px 20px #172b4d08; }
 .bills-archive-table { width: 100%; min-width: 940px; table-layout: fixed; border-collapse: collapse; text-align: left; }
-.bills-archive-table th:nth-child(1) { width: 14%; }
-.bills-archive-table th:nth-child(2) { width: 17%; }
+.bills-archive-table th:nth-child(1) { width: 12%; }
+.bills-archive-table th:nth-child(2) { width: 15%; }
 .bills-archive-table th:nth-child(3) { width: 9%; }
-.bills-archive-table th:nth-child(4) { width: 15%; }
+.bills-archive-table th:nth-child(4) { width: 8%; }
 .bills-archive-table th:nth-child(5),.bills-archive-table th:nth-child(6),.bills-archive-table th:nth-child(7) { width: 12%; }
-.bills-archive-table th:nth-child(8) { width: 9%; }
+.bills-archive-table th:nth-child(8) { width: 10%; }
+.bills-archive-table th:nth-child(9) { width: 10%; }
 .bills-archive-table th,.bills-archive-table td { padding: 13px 15px; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
 .bills-archive-table th { color: var(--text-muted); background: #f8fafc; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
 .bills-archive-table td { color: var(--text-dark); font-size: 13px; }
 .bills-archive-table tbody tr:last-child td { border-bottom: 0; }
+.bill-number { color: var(--primary-blue); }
+.bill-date,.bill-time { display: block; }
+.bill-time { margin-top: 3px; color: var(--text-muted); font-size: 11px; }
+.bill-money { font-variant-numeric: tabular-nums; }
 .bill-balance { display: inline-flex; padding: 5px 8px; border-radius: 999px; font-size: 11px; font-weight: 750; }
 .bill-balance.due { color: #9a3412; background: #fff1e8; }
 .bill-balance.paid { color: #18734a; background: #e5f5eb; }
+.bill-status { display: inline-flex; padding: 5px 8px; border-radius: 999px; font-size: 11px; font-weight: 750; }
+.bill-status.open { color: #9a3412; background: #fff1e8; }
+.bill-status.closed { color: #18734a; background: #e5f5eb; }
 .bill-view-link { color: var(--primary-blue); font-weight: 750; text-decoration: none; }
 .bill-view-link:hover { text-decoration: underline; }
 .bills-archive-empty { padding: 32px; text-align: center; }

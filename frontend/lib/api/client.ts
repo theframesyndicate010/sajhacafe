@@ -55,7 +55,7 @@ export const api = {
   createTable: (body: { tableNumber: string; capacity: number }) => request<RestaurantTable>("/tables", { method: "POST", body: JSON.stringify(body) }),
   createTables: (body: { prefix: string; count: number; capacity: number }) => request<RestaurantTable[]>("/tables/bulk", { method: "POST", body: JSON.stringify(body) }),
   orders: (status?: string) => request<Order[]>(status ? `/orders?status=${encodeURIComponent(status)}` : "/orders"),
-  bills: () => request<Bill[]>("/bills"),
+  bills: (status?: "OPEN" | "CLOSED") => request<Bill[]>(status ? `/bills?status=${status}` : "/bills"),
   bill: (id: string) => request<Bill>(`/bills/${encodeURIComponent(id)}`),
   markBillPrinted: (id: string, updatedAt: string) => request<Bill>(`/bills/${encodeURIComponent(id)}/printed`, { method: "POST", body: JSON.stringify({ updatedAt }) }),
   order: (id: string) => request<Order>(`/orders/${id}`),

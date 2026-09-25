@@ -38,7 +38,7 @@ spec('live multi-tenant workflows (temporary fixtures)', () => {
     tenantIds.push(tenant.id);
     await prisma.restaurantSettings.create({ data: { tenantId: tenant.id, businessName: slug } });
     const accounts: Record<string, string> = {};
-    for (const roleName of ['ADMIN', 'WAITER', 'CASHIER']) {
+    for (const roleName of ['WAITER', 'CASHIER']) {
       const roleId = roles.get(roleName);
       if (!roleId) throw new Error(`Required ${roleName} role is missing`);
       const email = `${roleName.toLowerCase()}-${slug}@example.test`;

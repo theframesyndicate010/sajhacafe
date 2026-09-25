@@ -1,4 +1,5 @@
 import type { CartLine } from "@/store/pos-store";
+import type { Bill } from "@/lib/api/client";
 
 const paymentMethods = ["Cash", "Card", "eSewa", "Khalti", "Bank Transfer", "Other", "Split"];
 const onlinePaymentMethods = ["eSewa", "Khalti", "Card", "Bank Transfer", "Other"];
@@ -6,6 +7,7 @@ const onlinePaymentMethods = ["eSewa", "Khalti", "Card", "Bank Transfer", "Other
 type CurrentOrderProps = {
   amountReceived: string;
   customer: string;
+  cashierBill?: Bill | null;
   errorMessage?: string;
   isCheckingOut: boolean;
   isSendingKot: boolean;
@@ -22,6 +24,7 @@ type CurrentOrderProps = {
   table: string;
   total: number;
   onAddManualItem: () => void;
+  onAddToBill?: () => void;
   onAmountReceivedChange: (value: string) => void;
   onCheckout: () => void;
   onCustomerChange: (value: string) => void;
@@ -32,6 +35,7 @@ type CurrentOrderProps = {
   onOnlinePaymentMethodChange: (value: string) => void;
   onQuantityChange: (id: string, delta: number) => void;
   onReferenceChange: (value: string) => void;
+  onPrintBill?: () => void;
   onSendKot: () => void;
   onTableChange: (value: string) => void;
 };
@@ -39,6 +43,7 @@ type CurrentOrderProps = {
 export function CurrentOrder({
   amountReceived,
   customer,
+  cashierBill,
   errorMessage,
   isCheckingOut,
   isSendingKot,
@@ -55,6 +60,7 @@ export function CurrentOrder({
   table,
   total,
   onAddManualItem,
+  onAddToBill,
   onAmountReceivedChange,
   onCheckout,
   onCustomerChange,
@@ -65,6 +71,7 @@ export function CurrentOrder({
   onOnlinePaymentMethodChange,
   onQuantityChange,
   onReferenceChange,
+  onPrintBill,
   onSendKot,
   onTableChange,
 }: CurrentOrderProps) {
@@ -76,9 +83,11 @@ export function CurrentOrder({
 
   return (
     <aside className="card order">
-      <h2 style={{ marginTop: 0 }}>Current order</h2>
+      <h2 style={{ marginTop: 0 }}>{cashierBill ? `Bill #${cashierBill.billNumber}` : "Current order"}</h2>
 
-      <div className="order-details">
+      {cashierBill && <div className="cashier-selected-bill"><span>{cashierBill.table?.tableNumber ?? "Takeaway"} · {cashierBill.orderCount} order{cashierBill.orderCount === 1 ? "" : "s"}</span><strong>Current total · NPR {Number(cashierBill.totalAmount).toLocaleString()}</strong></div>}
+
+      {!cashierBill && <div className="order-details">
         <label className="field">
           Table
           <select value={table} onChange={(event) => onTableChange(event.target.value)}>
@@ -94,9 +103,9 @@ export function CurrentOrder({
             placeholder="Walk-in customer"
           />
         </label>
-      </div>
+      </div>}
 
-      <div className="manual-item">
+      {!cashierBill && <div className="manual-item">
         <strong>Manual counter item</strong>
         <div className="form-row">
           <label className="field">
@@ -123,8 +132,11 @@ export function CurrentOrder({
             Add item
           </button>
         </div>
-      </div>
+      </div>}
 
+      {cashierBill && cashierBill.items.length > 0 && <div className="cashier-existing-items"><strong>Already on bill</strong>{cashierBill.items.map((item) => <div className="order-row" key={item.id}><span>{item.itemName} × {item.quantity}</span><strong>NPR {Number(item.totalAmount).toLocaleString()}</strong></div>)}</div>}
+
+      {cashierBill && hasItems && <strong className="cashier-additions-heading">New items</strong>}
       {items.map((item) => (
         <div className="order-row" key={item.id}>
           <div>
@@ -140,10 +152,10 @@ export function CurrentOrder({
         </div>
       ))}
 
-      <div className="total"><span>Subtotal (before VAT)</span><strong>NPR {subtotal}</strong></div>
-      <div className="total"><span>VAT included (13%)</span><span>NPR {total - subtotal}</span></div>
-      <div className="total" style={{ fontSize: 18 }}><strong>Total</strong><strong>NPR {total}</strong></div>
+      {cashierBill && hasItems && <div className="total"><span>Additions</span><strong>NPR {total.toLocaleString()}</strong></div>}
+      {!cashierBill && <><div className="total"><span>Subtotal (before VAT)</span><strong>NPR {subtotal}</strong></div><div className="total"><span>VAT included (13%)</span><span>NPR {total - subtotal}</span></div><div className="total" style={{ fontSize: 18 }}><strong>Total</strong><strong>NPR {total}</strong></div></>}
 
+      {!cashierBill && <>
       <hr style={{ border: 0, borderTop: "1px solid var(--border-color)", margin: "18px 0 12px" }} />
       <strong>Checkout</strong>
 
@@ -218,10 +230,15 @@ export function CurrentOrder({
       )}
 
       {paymentMethod === "Cash" && <p className="muted" style={{ fontSize: 13 }}>Change: NPR {Math.max(paid - total, 0)}</p>}
+      </>}
       {errorMessage && <p className="error">{errorMessage}</p>}
       {orderId && <p className="tag">KOT sent · Order #{orderId}</p>}
 
-      <div className="form-row" style={{ marginTop: 14 }}>
+      {cashierBill ? <div className="form-row cashier-bill-actions" style={{ marginTop: 14 }}>
+        {hasItems
+          ? <button className="btn" disabled={isSendingKot} onClick={onAddToBill} type="button">{isSendingKot ? "Saving and sending…" : "Add items & print bill"}</button>
+          : <button className="btn" disabled={isSendingKot} onClick={onPrintBill} type="button">Print bill</button>}
+      </div> : <div className="form-row" style={{ marginTop: 14 }}>
         <button className="btn secondary" disabled={!hasItems || isSendingKot || Boolean(orderId)} onClick={onSendKot} type="button">
           {isSendingKot ? "Sending…" : orderId ? "KOT sent" : "Send to kitchen"}
         </button>
@@ -229,6 +246,7 @@ export function CurrentOrder({
           {isCheckingOut ? "Processing…" : `Checkout · NPR ${total}`}
         </button>
       </div>
+      }
     </aside>
   );
 }

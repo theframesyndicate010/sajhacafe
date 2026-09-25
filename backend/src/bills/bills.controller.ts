@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseEnumPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { BillStatus } from '@prisma/client';
 import { IsDateString } from 'class-validator';
 import { Request } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
@@ -17,8 +18,8 @@ export class BillsController {
 
   @Get()
   @RequirePermission('orders.read')
-  list(@Req() request: Request) {
-    return this.bills.list(request.tenantId!);
+  list(@Req() request: Request, @Query('status', new ParseEnumPipe(BillStatus, { optional: true })) status?: BillStatus) {
+    return this.bills.list(request.tenantId!, status);
   }
 
   @Get(':id')

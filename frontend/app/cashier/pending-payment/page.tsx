@@ -7,7 +7,7 @@ import { api } from "@/lib/api/client";
 
 export default function PendingPaymentPage() {
   const router = useRouter();
-  const query = useQuery({ queryKey: ["orders"], queryFn: () => api.orders() });
+  const query = useQuery({ queryKey: ["orders"], queryFn: () => api.orders(), refetchInterval: 5000, refetchOnWindowFocus: true });
   const orders = (query.data ?? []).filter((order) => order.status === "SERVED").map((order) => { const total = Number(order.totalAmount); const paid = (order.payments ?? []).reduce((sum, payment) => sum + Number(payment.amount), 0); return { order, total, paid, due: Math.max(total - paid, 0) }; });
   const pending = orders.filter((entry) => entry.due > 0);
   const paid = orders.filter((entry) => entry.due <= 0);

@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   // or interfere with the cafe routes.
   pageExtensions: ["ts", "tsx"],
   async rewrites() {
-    const api = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.NEXT_PUBLIC_API_URL;
+    const api = process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "development" ? "http://localhost:3000" : undefined);
     return api ? [{ source: "/api/:path*", destination: `${api}/api/v1/:path*` }] : [];
   },
 };
