@@ -8,7 +8,7 @@ import { api } from "@/lib/api/client";
 
 export function ReceiptPrint({ receiptId }: { receiptId: string }) {
   const pathname = usePathname();
-  const canPrint = !pathname.startsWith("/waiter/");
+  const isWaiter = pathname.startsWith("/waiter/");
   const backPath = pathname.startsWith("/waiter/") ? "/waiter" : pathname.startsWith("/cashier/") ? "/cashier/bills" : "/pos";
   const queryClient = useQueryClient();
   const orderQuery = useQuery({ queryKey: ["bill", receiptId], queryFn: () => api.bill(receiptId) });
@@ -16,26 +16,26 @@ export function ReceiptPrint({ receiptId }: { receiptId: string }) {
   const order = orderQuery.data;
   const settings = settingsQuery.data;
   useEffect(() => {
-    if (!order || !canPrint) return;
+    if (!order) return;
     const onAfterPrint = () => {
       void api.markBillPrinted(receiptId, order.updatedAt)
         .then(() => queryClient.invalidateQueries({ queryKey: ["bills"] }))
         .catch((error) => console.error("Unable to save printed bill status", error));
     };
     window.addEventListener("afterprint", onAfterPrint);
-    const printTimer = window.setTimeout(() => window.print(), 500);
+    const printTimer = isWaiter ? undefined : window.setTimeout(() => window.print(), 500);
     return () => {
-      window.clearTimeout(printTimer);
+      if (printTimer !== undefined) window.clearTimeout(printTimer);
       window.removeEventListener("afterprint", onAfterPrint);
     };
-  }, [canPrint, order, queryClient, receiptId]);
+  }, [isWaiter, order, queryClient, receiptId]);
   if (orderQuery.isLoading || settingsQuery.isLoading) return <section className="card"><p className="muted">Loading receipt…</p></section>;
   if (!order || orderQuery.error) return <section className="card"><h1 className="page-title">Bill not found</h1><p className="muted">This bill is not available in the active cafe.</p><Link className="btn" href={backPath}>{backPath === "/waiter" ? "Back to bills" : "Back to POS"}</Link></section>;
   const payments = order.payments ?? [];
   const paid = payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
   return (
     <main className="receipt-page">
-      <div className="receipt-print-actions print-hidden"><Link className="btn secondary" href={backPath}>{backPath === "/waiter" ? "Back to bills" : backPath === "/cashier/bills" ? "Back to bills" : "Back to POS"}</Link>{canPrint && <button className="btn" onClick={() => window.print()} type="button">Print bill</button>}</div>
+      <div className="receipt-print-actions print-hidden"><Link className="btn secondary" href={backPath}>{backPath === "/waiter" ? "Back to bills" : backPath === "/cashier/bills" ? "Back to bills" : "Back to POS"}</Link><button className="btn" onClick={() => window.print()} type="button">Print bill</button></div>
       <article className="receipt-paper">
         <header className="receipt-heading">{settings?.logo && <img alt={`${settings.businessName} logo`} height={72} src={settings.logo} width={72} />}<h1>{settings?.businessName ?? order.table?.tableNumber ?? "Cafe"}</h1>{settings?.address && <p>{settings.address}</p>}{(settings?.phone || settings?.email) && <p>{[settings.phone, settings.email].filter(Boolean).join(" · ")}</p>}<p>Bill #{order.billNumber}</p><small>{new Date(order.createdAt ?? Date.now()).toLocaleString()}</small></header>
         <div className="receipt-meta"><span>Bill</span><strong>{order.billNumber}</strong><span>Table</span><strong>{order.table?.tableNumber ?? "Takeaway"}</strong><span>Customer</span><strong>{order.customer?.name ?? "Walk-in customer"}</strong></div>

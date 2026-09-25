@@ -712,6 +712,9 @@
 .table-list-heading { margin-bottom: 14px; }
 .configured-table-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; padding: 0; margin: 0; list-style: none; }
 .configured-table-list li { border: 1px solid var(--border-color); border-radius: 9px; padding: 12px; background: #f8fafc; font-weight: 650; }
+.configured-table-list li.configured-table-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.table-delete-button { display: inline-flex; align-items: center; gap: 5px; border: 1px solid #fecaca; border-radius: 7px; padding: 6px 8px; color: #b42318; background: #fff; font: inherit; font-size: 0.8rem; cursor: pointer; }
+.table-delete-button:disabled { cursor: not-allowed; opacity: 0.5; }
 
 @media (max-width: 600px) {
   .table-create-fields { grid-template-columns: minmax(0, 1fr); gap: 8px; }

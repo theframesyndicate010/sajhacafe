@@ -60,6 +60,23 @@ export class BillsService {
     return this.get(bill.id, tenantId);
   }
 
+  async close(id: string, tenantId: string) {
+    const billId = await this.prisma.$transaction(async (tx) => {
+      const bill = await tx.bill.findFirst({ where: { id, tenantId }, select: { id: true, tableId: true, status: true } });
+      if (!bill) throw new NotFoundException('Bill not found');
+      if (bill.tableId) {
+        // Match order creation's table lock so a new customer gets a fresh bill.
+        await tx.$queryRaw(Prisma.sql`SELECT id FROM RestaurantTable WHERE id = ${bill.tableId} AND tenantId = ${tenantId} FOR UPDATE`);
+      }
+      if (bill.status === 'OPEN') {
+        await tx.bill.updateMany({ where: { id: bill.id, tenantId, status: 'OPEN' }, data: { status: 'CLOSED', closedAt: new Date() } });
+        if (bill.tableId) await tx.restaurantTable.updateMany({ where: { id: bill.tableId, tenantId, status: 'OCCUPIED' }, data: { status: 'AVAILABLE' } });
+      }
+      return bill.id;
+    });
+    return this.get(billId, tenantId);
+  }
+
   private present(bill: Prisma.BillGetPayload<{ select: typeof billSelect }>) {
     const total = (key: 'subtotal' | 'discountAmount' | 'taxAmount' | 'totalAmount') => bill.orders.reduce((sum, order) => sum + Number(order[key]), 0);
     const payments = bill.orders.flatMap((order) => order.payments);

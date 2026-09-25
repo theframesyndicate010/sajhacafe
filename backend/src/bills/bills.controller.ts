@@ -33,4 +33,10 @@ export class BillsController {
   markPrinted(@Param('id') id: string, @Body() dto: PrintedBillDto, @Req() request: Request) {
     return this.bills.markPrinted(id, request.tenantId!, dto.updatedAt);
   }
+
+  @Post(':id/close')
+  @RequirePermission('orders.update')
+  close(@Param('id') id: string, @Req() request: Request) {
+    return this.bills.close(id, request.tenantId!);
+  }
 }

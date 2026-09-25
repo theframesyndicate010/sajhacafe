@@ -35,7 +35,7 @@ const permissionSeeds = [
 
 const grants: Record<string, readonly string[]> = {
   ADMIN: permissionSeeds.map(([key]) => key),
-  WAITER: ['orders.create', 'orders.read', 'orders.update', 'orders.send_to_kitchen', 'orders.serve', 'payments.read', 'payments.create'],
+  WAITER: ['orders.create', 'orders.read', 'orders.update', 'orders.send_to_kitchen', 'orders.serve', 'payments.read', 'payments.create', 'bills.print'],
   CASHIER: ['orders.create', 'orders.read', 'orders.send_to_kitchen', 'payments.read', 'payments.create', 'bills.print'],
   KITCHEN: ['orders.read', 'kitchen.manage'],
 };

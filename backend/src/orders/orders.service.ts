@@ -13,7 +13,7 @@ export class OrdersService {
   list(status: OrderStatus | undefined, tenantId: string) {
     return this.prisma.order.findMany({
       where: { tenantId, ...(status ? { status } : {}) },
-      include: { items: true, table: true, customer: true },
+      include: { items: true, table: true, customer: true, payments: { where: { status: 'COMPLETED' } } },
       orderBy: { createdAt: 'desc' },
     });
   }
