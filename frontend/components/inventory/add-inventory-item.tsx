@@ -10,18 +10,15 @@ export function AddInventoryItem() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
-  const [sku, setSku] = useState("");
   const [unit, setUnit] = useState("pcs");
   const [quantity, setQuantity] = useState("0");
   const [minimumLevel, setMinimumLevel] = useState("0");
   const [costPrice, setCostPrice] = useState("0");
   const mutation = useMutation({
     mutationFn: async () => {
-      const item = await api.inventory.create({ name: name.trim(), sku: sku.trim() || undefined, unit: unit.trim(), minimumQuantity: Number(minimumLevel), costPrice: Number(costPrice) });
-      if (Number(quantity) > 0) await api.inventory.adjust(item.id, Number(quantity), "Opening stock");
-      return item;
+      return api.inventory.create({ name: name.trim(), unit: unit.trim(), initialQuantity: Number(quantity), minimumQuantity: Number(minimumLevel), costPrice: Number(costPrice) });
     },
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["inventory"] }); router.push("/inventory"); },
+    onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["inventory"] }); router.push("/inventory"); },
   });
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -33,7 +30,7 @@ export function AddInventoryItem() {
       <header><h1 className="page-title">Add inventory item</h1><p className="muted">Enter an item and its opening stock for the active cafe.</p></header>
       <form className="card inventory-item-form" onSubmit={submit}>
         <label className="field">Item name<input autoComplete="off" onChange={(event) => setName(event.target.value)} placeholder="e.g. Coffee beans" required value={name} /></label>
-        <div className="inventory-form-row"><label className="field">Item code (SKU) <span className="muted">(optional)</span><input autoComplete="off" onChange={(event) => setSku(event.target.value)} placeholder="e.g. BEANS-001" value={sku} /></label><label className="field">Unit of measure<input autoComplete="off" onChange={(event) => setUnit(event.target.value)} placeholder="e.g. kg, L, or pcs" required value={unit} /></label></div>
+        <div className="inventory-form-row"><label className="field">SKU<span className="muted">Generated automatically</span><input aria-readonly="true" readOnly value="Generated when saved" /></label><label className="field">Unit of measure<input autoComplete="off" onChange={(event) => setUnit(event.target.value)} placeholder="e.g. kg, L, or pcs" required value={unit} /></label></div>
         <div className="inventory-form-row"><label className="field">Opening quantity<input min="0" onChange={(event) => setQuantity(event.target.value)} required step="any" type="number" value={quantity} /></label><label className="field">Minimum stock level<input min="0" onChange={(event) => setMinimumLevel(event.target.value)} required step="any" type="number" value={minimumLevel} /></label></div>
         <label className="field">Cost price per unit<input min="0" onChange={(event) => setCostPrice(event.target.value)} required step="any" type="number" value={costPrice} /></label>
         {mutation.error && <p className="error" role="alert">{mutation.error instanceof Error ? mutation.error.message : "Unable to save inventory item."}</p>}

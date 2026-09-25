@@ -4,7 +4,9 @@ import { Banknote, Clock3, LogOut, Menu, ReceiptText } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { OrganizationFooter } from "@/components/common/organization-footer";
+import { api } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth";
 
 const items = [
@@ -21,22 +23,23 @@ export function CashierLayout({ children }: { children: React.ReactNode }) {
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [cafeName, setCafeName] = useState("");
   const { user, isLoading: authLoading, error: authError, logout } = useAuth();
+  const settings = useQuery({ queryKey: ["settings"], queryFn: api.settings.get, enabled: Boolean(user) });
 
   useEffect(() => { if (user) setCafeName(user.tenant.name); }, [user]);
 
-  useEffect(() => { if (!authLoading && (authError || !user || user.role !== "CASHIER")) router.replace("/login"); else if (user) setCashierName(user.name); }, [authError, authLoading, router, user]);
+  useEffect(() => { if (!authLoading && (authError || !user || user.role.toUpperCase() !== "CASHIER")) router.replace("/login"); else if (user) setCashierName(user.name); }, [authError, authLoading, router, user]);
 
   function logOut() {
     void logout();
     router.replace("/login");
   }
 
-  if (authLoading || !user || user.role !== "CASHIER") return <main className="login"><p className="muted">Checking your session…</p></main>;
+  if (authLoading || !user || user.role.toUpperCase() !== "CASHIER") return <main className="login"><p className="muted">Checking your session…</p></main>;
 
   return (
     <div className={`cashier-shell ${sidebarExpanded ? "sidebar-expanded" : "sidebar-collapsed"}`}>
       <aside className={`cashier-sidebar ${sidebarExpanded ? "expanded" : "collapsed"}`} id="cashier-sidebar">
-        <div className="cashier-brand">{cafeName}<small>CASHIER</small></div>
+        <div className="cashier-brand">{settings.data?.logo && <img alt={`${cafeName} logo`} height={40} src={settings.data.logo} width={40} />}{cafeName}<small>CASHIER</small></div>
         <nav aria-label="Cashier navigation">
           {items.map(({ href, label, Icon }) => (
             <Link aria-current={pathname === href ? "page" : undefined} className={pathname === href ? "active" : ""} href={href} key={href}>

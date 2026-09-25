@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Minus, Plus, Search, Trash2, Utensils } from "lucide-react";
 import { api, type MenuItem, type Order } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth";
 
 export default function WaiterDashboard() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const waiterName = user?.name ?? "Waiter";
   const [table, setTable] = useState("");
   const [category, setCategory] = useState("All");
@@ -27,7 +28,7 @@ export default function WaiterDashboard() {
       await api.sendOrderToKitchen(order.id);
       return order;
     },
-    onSuccess: (order) => { setSubmittedOrder(order); setOrderItems([]); setError(""); },
+    onSuccess: (order) => { setSubmittedOrder(order); setOrderItems([]); setError(""); void queryClient.invalidateQueries({ queryKey: ["orders"] }); },
     onError: (submitError) => setError(submitError instanceof Error ? submitError.message : "Could not submit the order."),
   });
 
@@ -42,6 +43,7 @@ export default function WaiterDashboard() {
   }, [category, menuItems, search]);
 
   const itemCount = orderItems.reduce((total, item) => total + item.quantity, 0);
+  const orderTotal = orderItems.reduce((total, item) => total + item.price * item.quantity, 0);
 
   function addItem(item: MenuItem) {
     setSubmittedOrder(null);
@@ -120,6 +122,7 @@ export default function WaiterDashboard() {
               <button className="waiter-menu-item" key={item.id} onClick={() => addItem(item)} type="button">
                 <span className="waiter-menu-category">{item.category}</span>
                 <strong>{item.name}</strong>
+                <span className="muted">NPR {item.price.toLocaleString()}</span>
                 <span className="waiter-add-item"><Plus aria-hidden="true" size={16} /> Add item</span>
               </button>
             ))}
@@ -140,7 +143,7 @@ export default function WaiterDashboard() {
               {orderItems.map((item) => (
                 <div className="waiter-order-line" key={item.id}>
                   <div className="waiter-order-line-top">
-                    <strong>{item.name}</strong>
+                    <div><strong>{item.name}</strong><br /><small className="muted">NPR {Number(item.price).toLocaleString()} each · NPR {(Number(item.price) * item.quantity).toLocaleString()}</small></div>
                     <button aria-label={`Remove ${item.name}`} className="waiter-remove-item" onClick={() => changeQuantity(item.id, -item.quantity)} type="button"><Trash2 size={16} /></button>
                   </div>
                   <div className="waiter-order-line-bottom">
@@ -151,6 +154,8 @@ export default function WaiterDashboard() {
               ))}
             </div>
           )}
+
+          <div className="total waiter-order-total"><strong>Order total</strong><strong>NPR {orderTotal.toLocaleString()}</strong></div>
 
           {(error || menuQuery.error || tablesQuery.error) && <p className="error">{error || "Unable to load tenant ordering data."}</p>}
           <button className="btn waiter-submit-order" disabled={!table || !orderItems.length || submitMutation.isPending} onClick={submitOrder} type="button">{submitMutation.isPending ? "Sending…" : "Order"}</button>

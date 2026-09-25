@@ -1,8 +1,10 @@
 export type ApiEnvelope<T> = { success: true; data: T; message?: string };
 export type Tenant = { id: string; name: string; slug: string };
 export type User = { id: string; name: string; email: string; phone?: string | null; role: string; permissions: string[]; tenant: Tenant; memberships?: { tenant: Tenant; role: string }[] };
+export type ManagedUser = { id: string; name: string; email: string; phone?: string | null; isActive: boolean; memberships: { isActive: boolean; role: { id: string; name: string } }[]; createdAt?: string };
+export type ManagedRole = { id: string; name: string; description?: string | null };
 export type Category = { id: string; name: string; description?: string | null; displayOrder: number; isActive: boolean };
-export type MenuItem = { id: string; categoryId?: string; category: string; name: string; description?: string | null; price: number; imageUrl?: string | null; isActive?: boolean };
+export type MenuItem = { id: string; categoryId?: string; inventoryItemId?: string | null; category: string; name: string; description?: string | null; price: number; imageUrl?: string | null; isActive?: boolean };
 export type RestaurantTable = { id: string; tableNumber: string; capacity: number; status: "AVAILABLE" | "OCCUPIED" | "RESERVED" | "OUT_OF_SERVICE"; isActive: boolean; orders?: { id: string; orderNumber: string; status: string }[] };
 export type OrderItem = { id: string; menuItemId: string; itemName: string; quantity: number | string; unitPrice: number | string; totalAmount: number | string; notes?: string | null };
 export type OrderPayment = { id: string; method: PaymentMethod; amount: number | string; referenceNumber?: string | null };
@@ -10,15 +12,34 @@ export type Order = { id: string; orderNumber: string; orderType: "DINE_IN" | "T
 export type KitchenOrder = { id: string; kotNumber: string; status: "PENDING" | "PREPARING" | "READY" | "COMPLETED" | "CANCELLED"; order: { table?: RestaurantTable | null }; items: { quantity: number | string; orderItem: { itemName: string } }[]; createdAt: string };
 export type InventoryItem = { id: string; name: string; sku?: string | null; unit: string; currentQuantity: number | string; minimumQuantity: number | string; costPrice: number | string; isActive: boolean };
 export type DashboardSummary = { sales: number | string; orders: number; pendingKot: number; preparingKot: number; readyKot: number; occupiedTables: number; availableTables: number; lowStockItems: number };
-export type RestaurantSettings = { id: string; businessName: string; address?: string | null; phone?: string | null; email?: string | null; currency: string; timezone: string; taxEnabled: boolean; taxRate: number | string; taxInclusive: boolean };
+export type RestaurantSettings = { id: string; businessName: string; address?: string | null; phone?: string | null; email?: string | null; logo?: string | null; currency: string; timezone: string; taxEnabled: boolean; taxRate: number | string; taxInclusive: boolean };
 export type LoginInput = { email: string; password: string; tenantId?: string };
 export type CreateOrderInput = { orderType: "DINE_IN" | "TAKEAWAY"; tableId?: string; customerId?: string; items: { menuItemId: string; quantity: number; notes?: string }[]; notes?: string; discountAmount?: number };
 export type PaymentMethod = "CASH" | "CARD" | "ESEWA" | "KHALTI" | "BANK_TRANSFER" | "OTHER";
 
+function parseApiPrice(value: unknown): number {
+  if ((typeof value !== "number" && typeof value !== "string") || (typeof value === "string" && !value.trim())) {
+    throw new Error("The server returned a menu item without a valid price.");
+  }
+  const price = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(price) || price < 0) throw new Error("The server returned a menu item without a valid price.");
+  return price;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api${path}`, { ...init, credentials: "include", headers: { "Content-Type": "application/json", ...init?.headers } });
+  let response: Response;
+  try {
+    response = await fetch(`/api${path}`, { ...init, credentials: "include", headers: { "Content-Type": "application/json", ...init?.headers } });
+  } catch (error) {
+    console.error("API request could not reach the server", { path, error });
+    throw new Error("Unable to reach the server. Check your connection and try again.");
+  }
   const body = (await response.json().catch(() => null)) as ApiEnvelope<T> | { success: false; error?: { message?: string } } | null;
-  if (!response.ok || !body?.success) throw new Error(body && "error" in body ? body.error?.message : "Request failed");
+  if (!response.ok || !body?.success) {
+    const message = body && "error" in body ? body.error?.message : undefined;
+    console.error("API request failed", { path, status: response.status, message });
+    throw new Error(message || `Request failed (${response.status})`);
+  }
   return body.data;
 }
 
@@ -27,10 +48,11 @@ export const api = {
   dashboard: () => request<DashboardSummary>("/dashboard/summary"),
   categories: () => request<Category[]>("/categories?activeOnly=true"),
   createCategory: (body: { name: string }) => request<Category>("/categories", { method: "POST", body: JSON.stringify(body) }),
-  menuItems: async () => (await request<Array<Omit<MenuItem, "category" | "price"> & { category?: Category | string; price: number | string }>>("/menu-items?activeOnly=true")).map((item) => ({ ...item, category: typeof item.category === "string" ? item.category : item.category?.name ?? "Uncategorized", price: Number(item.price) })),
-  createMenuItem: (body: { categoryId: string; name: string; price: number }) => request<MenuItem>("/menu-items", { method: "POST", body: JSON.stringify(body) }),
+  menuItems: async () => (await request<Array<Omit<MenuItem, "category" | "price"> & { category?: Category | string; price: unknown }>>("/menu-items?activeOnly=true")).map((item) => ({ ...item, category: typeof item.category === "string" ? item.category : item.category?.name ?? "Uncategorized", price: parseApiPrice(item.price) })),
+  createMenuItem: (body: { categoryId: string; name: string; price: number; inventoryItemId?: string }) => request<MenuItem>("/menu-items", { method: "POST", body: JSON.stringify(body) }),
   tables: () => request<RestaurantTable[]>("/tables"),
   createTable: (body: { tableNumber: string; capacity: number }) => request<RestaurantTable>("/tables", { method: "POST", body: JSON.stringify(body) }),
+  createTables: (body: { prefix: string; count: number; capacity: number }) => request<RestaurantTable[]>("/tables/bulk", { method: "POST", body: JSON.stringify(body) }),
   orders: (status?: string) => request<Order[]>(status ? `/orders?status=${encodeURIComponent(status)}` : "/orders"),
   order: (id: string) => request<Order>(`/orders/${id}`),
   createOrder: (body: CreateOrderInput) => request<Order>("/orders", { method: "POST", body: JSON.stringify(body) }),
@@ -42,8 +64,17 @@ export const api = {
   startKot: (id: string) => request(`/kots/${id}/start`, { method: "POST" }),
   readyKot: (id: string) => request(`/kots/${id}/ready`, { method: "POST" }),
   completeKot: (id: string) => request(`/kots/${id}/complete`, { method: "POST" }),
-  settings: { get: () => request<RestaurantSettings>("/settings"), update: (body: Partial<Pick<RestaurantSettings, "businessName" | "address" | "phone" | "email" | "taxEnabled" | "taxRate" | "taxInclusive" | "timezone">>) => request<RestaurantSettings>("/settings", { method: "PATCH", body: JSON.stringify(body) }) },
-  inventory: { list: () => request<InventoryItem[]>("/inventory"), create: (body: { name: string; sku?: string; unit: string; minimumQuantity: number; costPrice: number }) => request<InventoryItem>("/inventory", { method: "POST", body: JSON.stringify(body) }), adjust: (id: string, quantity: number, reason: string) => request(`/inventory/${id}/adjust`, { method: "POST", body: JSON.stringify({ quantity, reason }) }) },
+  settings: { get: () => request<RestaurantSettings>("/settings"), update: (body: Partial<Pick<RestaurantSettings, "businessName" | "address" | "phone" | "email" | "logo" | "taxEnabled" | "taxRate" | "taxInclusive" | "timezone">>) => request<RestaurantSettings>("/settings", { method: "PATCH", body: JSON.stringify(body) }) },
+  users: {
+    list: () => request<ManagedUser[]>("/users"),
+    roles: () => request<ManagedRole[]>("/users/roles"),
+    create: (body: { name: string; email: string; phone?: string; password: string; roleId: string }) => request<ManagedUser>("/users", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: string, body: { name?: string; email?: string; phone?: string; roleId?: string }) => request<ManagedUser>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    deactivate: (id: string) => request(`/users/${id}`, { method: "DELETE" }),
+    setActive: (id: string, isActive: boolean) => request(`/users/${id}/status`, { method: "PATCH", body: JSON.stringify({ isActive }) }),
+    changePassword: (id: string, password: string) => request(`/users/${id}/password`, { method: "POST", body: JSON.stringify({ password }) }),
+  },
+  inventory: { list: () => request<InventoryItem[]>("/inventory"), create: (body: { name: string; sku?: string; unit: string; initialQuantity: number; minimumQuantity: number; costPrice: number }) => request<InventoryItem>("/inventory", { method: "POST", body: JSON.stringify(body) }), update: (id: string, body: { minimumQuantity?: number; name?: string; unit?: string }) => request<InventoryItem>(`/inventory/${id}`, { method: "PATCH", body: JSON.stringify(body) }), adjust: (id: string, quantity: number, reason: string) => request(`/inventory/${id}/adjust`, { method: "POST", body: JSON.stringify({ quantity, reason }) }) },
 };
 
 export const sampleMenu: MenuItem[] = [

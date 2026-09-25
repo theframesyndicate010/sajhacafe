@@ -15,9 +15,20 @@ export class InventoryItemDto {
   @Min(0)
   minimumQuantity!: number;
 
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  initialQuantity?: number;
+
   @IsNumber()
   @Min(0)
   costPrice!: number;
+}
+
+export class UpdateInventoryDto {
+  @IsOptional() @IsNumber() @Min(0) minimumQuantity?: number;
+  @IsOptional() @IsString() name?: string;
+  @IsOptional() @IsString() unit?: string;
 }
 
 export class StockMovementDto {

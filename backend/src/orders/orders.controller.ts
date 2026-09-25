@@ -48,7 +48,7 @@ export class OrdersController {
   }
 
   @Post(':id/send-to-kitchen')
-  @RequirePermission('orders.update')
+  @RequirePermission('orders.send_to_kitchen')
   sendToKitchen(@Param('id') id: string, @Req() request: Request) {
     return this.orders.sendToKitchen(id, request.tenantId!);
   }

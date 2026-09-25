@@ -17,7 +17,9 @@ import {
   Users,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { OrganizationFooter } from "@/components/common/organization-footer";
+import { api } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth";
 
 const DRAWER_MAX_WIDTH = 1199;
@@ -33,6 +35,7 @@ const navigation = [
   ["/inventory", "Inventory", Package],
   ["/reports", "Reports", LayoutDashboard],
   ["/settings", "Settings", Settings],
+  ["/users", "Users", Users],
 ] as const;
 
 const topNavigation = [
@@ -50,9 +53,12 @@ export default function CafeLayout({ children }: { children: React.ReactNode }) 
   const [isDrawerViewport, setIsDrawerViewport] = useState(false);
   const [cafeName, setCafeName] = useState("");
   const { user, isLoading: authLoading, error: authError, logout, switchTenant } = useAuth();
+  const settings = useQuery({ queryKey: ["settings"], queryFn: api.settings.get, enabled: Boolean(user) });
 
   useEffect(() => {
     if (!authLoading && (authError || !user)) router.replace("/login");
+    else if (user?.role.toUpperCase() === "WAITER") router.replace("/waiter");
+    else if (user?.role.toUpperCase() === "CASHIER") router.replace("/cashier");
   }, [authError, authLoading, router, user]);
 
   const toggleSidebar = () => {
@@ -104,13 +110,13 @@ export default function CafeLayout({ children }: { children: React.ReactNode }) 
       <aside className={`sidebar ${expanded ? "expanded" : ""} ${mobileOpen ? "mobile-open" : ""}`} id="cafe-sidebar">
         <div className="sidebar-brand">
           <div className="brand-box">
-            <Image alt={cafeName} height={42} priority src="/logo.png" width={42} />
+            {settings.data?.logo ? <img alt={`${cafeName} logo`} height={42} src={settings.data.logo} width={42} /> : <Image alt={cafeName} height={42} priority src="/logo.png" width={42} />}
           </div>
           <h4 className="nav-text">{cafeName}</h4>
         </div>
 
         <nav className="sidebar-menu">
-          {navigation.map(([href, label, Icon]) => (
+          {navigation.filter(([href]) => href !== "/users" || user.permissions.includes("users.manage")).map(([href, label, Icon]) => (
             <Link
               className={`nav-link ${pathname.startsWith(href) ? "active" : ""} ${!expanded ? "collapsed" : ""}`}
               data-tooltip={label}

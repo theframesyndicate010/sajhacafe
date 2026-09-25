@@ -2,6 +2,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type User } from "@/lib/api/client";
 export const authQueryKey = ["auth", "me"] as const;
+export function getWorkspacePath(user: Pick<User, "role">) {
+  if (user.role.toUpperCase() === "WAITER") return "/waiter";
+  if (user.role.toUpperCase() === "CASHIER") return "/cashier";
+  return "/dashboard";
+}
 export function useAuth() {
   const queryClient = useQueryClient();
   const query = useQuery<User>({ queryKey: authQueryKey, queryFn: api.auth.me, retry: false, staleTime: 60_000 });

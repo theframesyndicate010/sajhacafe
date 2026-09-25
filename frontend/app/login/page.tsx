@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { OrganizationFooter } from "@/components/common/organization-footer";
 import { api } from "@/lib/api/client";
-import { authQueryKey } from "@/lib/auth";
+import { authQueryKey, getWorkspacePath } from "@/lib/auth";
 import { useQueryClient } from "@tanstack/react-query";
 
 const loginSchema = z.object({
@@ -33,18 +33,10 @@ export default function LoginPage() {
     try {
       const user = await api.auth.login(values);
       queryClient.setQueryData(authQueryKey, user);
-      router.replace("/dashboard");
+      router.replace(getWorkspacePath(user));
     } catch (error) {
       setServerError(error instanceof Error ? error.message : "Unable to sign in.");
     }
-  }
-
-  function loginAsWaiter() {
-    setServerError("Use an active waiter account to sign in.");
-  }
-
-  function loginAsCashier() {
-    setServerError("Use an active cashier account to sign in.");
   }
 
   return (
@@ -71,14 +63,6 @@ export default function LoginPage() {
           {isSubmitting ? "Signing in…" : "Sign in"}
         </button>
 
-        <div className="login-divider"><span>or</span></div>
-
-        <button className="btn secondary" onClick={loginAsWaiter} style={{ width: "100%" }} type="button">
-          Login as Waiter
-        </button>
-        <button className="btn secondary" onClick={loginAsCashier} style={{ width: "100%", marginTop: 8 }} type="button">
-          Login as Cashier
-        </button>
       </form>
       <OrganizationFooter />
     </main>

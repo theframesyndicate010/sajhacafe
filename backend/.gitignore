@@ -6,4 +6,5 @@ coverage/
 .prettierignore
 .prettierrc
 test
+!test/
 seed.ts

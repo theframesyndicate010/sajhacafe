@@ -16,6 +16,7 @@ export class AuthService {
   constructor(private readonly prisma: PrismaService) {}
 
   async login(email: string, password: string, tenantId?: string): Promise<{ sessionId: string; user: object }> {
+    email = email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: {

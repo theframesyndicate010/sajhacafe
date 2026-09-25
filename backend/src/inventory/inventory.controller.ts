@@ -3,7 +3,7 @@ import { Request } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { RequirePermission } from '../permissions/permissions.decorator';
-import { InventoryItemDto, StockMovementDto } from './dto/inventory.dto';
+import { InventoryItemDto, StockMovementDto, UpdateInventoryDto } from './dto/inventory.dto';
 import { InventoryService } from './inventory.service';
 
 @Controller('inventory')
@@ -26,12 +26,12 @@ export class InventoryController {
   @Post()
   @RequirePermission('inventory.adjust')
   create(@Body() dto: InventoryItemDto, @Req() request: Request) {
-    return this.inventory.create(dto, request.tenantId!);
+    return this.inventory.create(dto, request);
   }
 
   @Patch(':id')
   @RequirePermission('inventory.adjust')
-  update(@Param('id') id: string, @Body() dto: Partial<InventoryItemDto>, @Req() request: Request) {
+  update(@Param('id') id: string, @Body() dto: UpdateInventoryDto, @Req() request: Request) {
     return this.inventory.update(id, dto, request.tenantId!);
   }
 

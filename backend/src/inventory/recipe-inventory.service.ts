@@ -15,6 +15,17 @@ export class RecipeInventoryService {
     });
     const requirements = new Map<string, number>();
     for (const item of order.items) {
+      const menuItem = await tx.menuItem.findFirst({
+        where: { id: item.menuItemId, tenantId, isActive: true },
+        select: { inventoryItemId: true },
+      });
+      if (menuItem?.inventoryItemId) {
+        requirements.set(
+          menuItem.inventoryItemId,
+          (requirements.get(menuItem.inventoryItemId) ?? 0) + Number(item.quantity),
+        );
+        continue;
+      }
       const recipes = await tx.recipe.findMany({
         where: { tenantId, menuItemId: item.menuItemId, isActive: true },
         include: { items: true },
@@ -29,10 +40,13 @@ export class RecipeInventoryService {
         );
     }
     for (const [inventoryItemId, quantity] of requirements) {
-      const item = await tx.inventoryItem.findFirstOrThrow({ where: { id: inventoryItemId, tenantId } });
+      const [item] = await tx.$queryRaw<Array<{ id: string; name: string; currentQuantity: Prisma.Decimal }>>`
+        SELECT "id", "name", "currentQuantity" FROM "InventoryItem"
+        WHERE "id" = ${inventoryItemId}::uuid AND "tenantId" = ${tenantId}::uuid FOR UPDATE`;
+      if (!item) throw new BadRequestException('Inventory item was not found in the active cafe');
       const next = Number(item.currentQuantity) - quantity;
       if (next < 0) throw new BadRequestException(`Insufficient stock for ${item.name}`);
-      await tx.inventoryItem.updateMany({ where: { id: item.id, tenantId }, data: { currentQuantity: next } });
+      await tx.inventoryItem.update({ where: { id: item.id }, data: { currentQuantity: next } });
       await tx.stockMovement.create({
         data: {
           tenantId, inventoryItemId: item.id,

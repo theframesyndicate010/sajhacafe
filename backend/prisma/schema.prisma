@@ -235,15 +235,18 @@ model MenuItem {
   name String @db.VarChar(150)
   description String?
   price Decimal @db.Decimal(12,2)
+  inventoryItemId String? @db.Uuid
   imageUrl String?
   isActive Boolean @default(true)
   category Category @relation(fields:[categoryId], references:[id])
+  inventoryItem InventoryItem? @relation(fields:[inventoryItemId], references:[id], onDelete: SetNull)
   orderItems OrderItem[]
   recipes Recipe[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   tenant Tenant @relation(fields:[tenantId], references:[id], onDelete: Cascade)
   @@index([tenantId, categoryId, isActive])
+  @@unique([tenantId, inventoryItemId])
 }
 
 model Recipe {
@@ -437,6 +440,7 @@ model InventoryItem {
   costPrice Decimal @default(0) @db.Decimal(12,2)
   isActive Boolean @default(true)
   recipeItems RecipeItem[]
+  sellableMenuItems MenuItem[]
   purchaseItems PurchaseItem[]
   movements StockMovement[]
   createdAt DateTime @default(now())

@@ -8,12 +8,14 @@ export function MenuManagement() {
   const queryClient = useQueryClient();
   const categoriesQuery = useQuery({ queryKey: ["categories"], queryFn: api.categories });
   const itemsQuery = useQuery({ queryKey: ["menu-items"], queryFn: api.menuItems });
+  const inventoryQuery = useQuery({ queryKey: ["inventory"], queryFn: api.inventory.list });
   const categories = categoriesQuery.data ?? [];
   const items = itemsQuery.data ?? [];
   const [categoryName, setCategoryName] = useState("");
   const [itemName, setItemName] = useState("");
   const [itemCategory, setItemCategory] = useState("");
   const [itemPrice, setItemPrice] = useState("");
+  const [inventoryItemId, setInventoryItemId] = useState("");
   const [formError, setFormError] = useState("");
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ["categories"] });
@@ -25,8 +27,8 @@ export function MenuManagement() {
     onError: (error) => setFormError(error instanceof Error ? error.message : "Unable to create category."),
   });
   const itemMutation = useMutation({
-    mutationFn: () => api.createMenuItem({ categoryId: itemCategory, name: itemName.trim(), price: Number(itemPrice) }),
-    onSuccess: () => { refresh(); setItemName(""); setItemPrice(""); setFormError(""); },
+    mutationFn: () => api.createMenuItem({ categoryId: itemCategory, name: itemName.trim(), price: Number(itemPrice), ...(inventoryItemId ? { inventoryItemId } : {}) }),
+    onSuccess: () => { refresh(); void queryClient.invalidateQueries({ queryKey: ["inventory"] }); setItemName(""); setItemPrice(""); setInventoryItemId(""); setFormError(""); },
     onError: (error) => setFormError(error instanceof Error ? error.message : "Unable to create menu item."),
   });
   const addCategory = (event: React.FormEvent<HTMLFormElement>) => {
@@ -55,6 +57,7 @@ export function MenuManagement() {
             <label className="field">Category<select onChange={(event) => setItemCategory(event.target.value)} required value={itemCategory}><option value="">Select a category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
             <label className="field">Price (NPR)<input min="0.01" onChange={(event) => setItemPrice(event.target.value)} placeholder="0.00" required step="0.01" type="number" value={itemPrice} /></label>
           </div>
+          <label className="field">Inventory product <span className="muted">(optional; sales deduct one unit from stock)</span><select onChange={(event) => setInventoryItemId(event.target.value)} value={inventoryItemId}><option value="">No direct inventory link</option>{(inventoryQuery.data ?? []).filter((item) => item.isActive && !items.some((menuItem) => menuItem.inventoryItemId === item.id)).map((item) => <option key={item.id} value={item.id}>{item.name} · {item.sku}</option>)}</select></label>
           <button className="btn" disabled={!categories.length || itemMutation.isPending} type="submit">{itemMutation.isPending ? "Adding…" : "Add menu item"}</button>
           {!categories.length && <small className="muted">Add a category before creating menu items.</small>}
         </form>

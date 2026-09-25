@@ -11,7 +11,9 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { OrganizationFooter } from "@/components/common/organization-footer";
+import { api } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth";
 
 const navigationItems = [
@@ -28,9 +30,10 @@ export function WaiterLayout({ children }: { children: React.ReactNode }) {
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [cafeName, setCafeName] = useState("");
   const { user, isLoading: authLoading, error: authError, logout } = useAuth();
+  const settings = useQuery({ queryKey: ["settings"], queryFn: api.settings.get, enabled: Boolean(user) });
 
   useEffect(() => {
-    if (!authLoading && (authError || !user || user.role !== "WAITER")) router.replace("/login");
+    if (!authLoading && (authError || !user || user.role.toUpperCase() !== "WAITER")) router.replace("/login");
     else if (user) setWaiterName(user.name);
   }, [authError, authLoading, router, user]);
 
@@ -41,12 +44,13 @@ export function WaiterLayout({ children }: { children: React.ReactNode }) {
     router.replace("/login");
   }
 
-  if (authLoading || !user || user.role !== "WAITER") return <main className="login"><p className="muted">Checking your session…</p></main>;
+  if (authLoading || !user || user.role.toUpperCase() !== "WAITER") return <main className="login"><p className="muted">Checking your session…</p></main>;
 
   return (
     <div className={`waiter-shell ${sidebarExpanded ? "sidebar-expanded" : "sidebar-collapsed"}`}>
       <aside className={`waiter-sidebar ${sidebarExpanded ? "expanded" : "collapsed"}`} id="waiter-sidebar">
         <div className="waiter-brand">
+          {settings.data?.logo && <img alt={`${cafeName} logo`} height={40} src={settings.data.logo} width={40} />}
           {cafeName}
           <small>WAITER</small>
         </div>

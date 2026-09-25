@@ -20,8 +20,8 @@ export default function ReportsPage() {
     for (const order of orders) for (const line of order.items) {
       const key = line.itemName.trim().toLocaleLowerCase();
       const item = items.get(key) ?? { name: line.itemName, quantity: 0, sales: 0 };
-      item.quantity += Number(line.quantity) || 0;
-      item.sales += (Number(line.unitPrice) || 0) * (Number(line.quantity) || 0);
+      item.quantity += Number(line.quantity);
+      item.sales += Number(line.unitPrice) * Number(line.quantity);
       items.set(key, item);
     }
     const buckets: DayBucket[] = [];
