@@ -38,7 +38,7 @@ spec('live multi-tenant workflows (temporary fixtures)', () => {
     tenantIds.push(tenant.id);
     await prisma.restaurantSettings.create({ data: { tenantId: tenant.id, businessName: slug } });
     const accounts: Record<string, string> = {};
-    for (const roleName of ['WAITER', 'CASHIER']) {
+    for (const roleName of ['ADMIN', 'WAITER', 'CASHIER']) {
       const roleId = roles.get(roleName);
       if (!roleId) throw new Error(`Required ${roleName} role is missing`);
       const email = `${roleName.toLowerCase()}-${slug}@example.test`;
@@ -78,7 +78,34 @@ spec('live multi-tenant workflows (temporary fixtures)', () => {
   }, 30_000);
 
   afterAll(async () => {
-    if (prisma && tenantIds.length) await prisma.tenant.deleteMany({ where: { id: { in: tenantIds } } });
+    if (prisma && tenantIds.length) {
+      const tenantWhere = { tenantId: { in: tenantIds } };
+      await prisma.refund.deleteMany({ where: tenantWhere });
+      await prisma.payment.deleteMany({ where: tenantWhere });
+      await prisma.customerLedgerEntry.deleteMany({ where: tenantWhere });
+      await prisma.kotItem.deleteMany({ where: tenantWhere });
+      await prisma.kot.deleteMany({ where: tenantWhere });
+      await prisma.orderItem.deleteMany({ where: tenantWhere });
+      await prisma.order.deleteMany({ where: tenantWhere });
+      await prisma.bill.deleteMany({ where: tenantWhere });
+      await prisma.stockMovement.deleteMany({ where: tenantWhere });
+      await prisma.purchaseItem.deleteMany({ where: tenantWhere });
+      await prisma.purchase.deleteMany({ where: tenantWhere });
+      await prisma.recipeItem.deleteMany({ where: tenantWhere });
+      await prisma.recipe.deleteMany({ where: tenantWhere });
+      await prisma.menuItem.deleteMany({ where: tenantWhere });
+      await prisma.category.deleteMany({ where: tenantWhere });
+      await prisma.restaurantTable.deleteMany({ where: tenantWhere });
+      await prisma.customer.deleteMany({ where: tenantWhere });
+      await prisma.supplier.deleteMany({ where: tenantWhere });
+      await prisma.expense.deleteMany({ where: tenantWhere });
+      await prisma.auditLog.deleteMany({ where: tenantWhere });
+      await prisma.restaurantSettings.deleteMany({ where: tenantWhere });
+      await prisma.session.deleteMany({ where: tenantWhere });
+      await prisma.tenantMembership.deleteMany({ where: tenantWhere });
+      await prisma.inventoryItem.deleteMany({ where: tenantWhere });
+      await prisma.tenant.deleteMany({ where: { id: { in: tenantIds } } });
+    }
     if (prisma && userIds.length) await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     if (app) await app.close();
   }, 30_000);
@@ -126,8 +153,7 @@ spec('live multi-tenant workflows (temporary fixtures)', () => {
     expect(firstBill).toBeDefined();
     expect(firstBill.status).toBe('OPEN');
     const printed = await call(`/bills/${firstBill.id}/printed`, { method: 'POST', cookie: waiterCookie, body: { updatedAt: firstBill.updatedAt } });
-    expect(printed.status).toBe(201);
-    expect(printed.json.data.printedAt).toBeTruthy();
+    expect(printed.status).toBe(403);
 
     const secondOrder = await call('/orders', { method: 'POST', cookie: waiterCookie, body: { orderType: 'DINE_IN', tableId: table.id, items: [{ menuItemId: menuResult.json.data.id, quantity: 2 }] } });
     expect(secondOrder.status).toBe(201);

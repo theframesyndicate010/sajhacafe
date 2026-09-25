@@ -133,7 +133,7 @@ export class PaymentsService {
       if (nextPaid >= Number(order.totalAmount)) {
         const billLock = await tx.bill.findFirst({ where: { id: order.billId, tenantId }, select: { tableId: true } });
         if (billLock?.tableId) {
-          await tx.$queryRaw`SELECT "id" FROM "RestaurantTable" WHERE "id" = ${billLock.tableId}::uuid AND "tenantId" = ${tenantId}::uuid FOR UPDATE`;
+          await tx.$queryRaw`SELECT id FROM RestaurantTable WHERE id = ${billLock.tableId} AND tenantId = ${tenantId} FOR UPDATE`;
         }
         const bill = await tx.bill.findFirst({
           where: { id: order.billId, tenantId, status: 'OPEN' },

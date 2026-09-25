@@ -31,7 +31,7 @@ export class CustomersController {
       where: { tenantId: request.tenantId!, ...(search
         ? {
             OR: [
-              { name: { contains: search, mode: 'insensitive' } },
+              { name: { contains: search } },
               { phone: { contains: search } },
             ],
           }

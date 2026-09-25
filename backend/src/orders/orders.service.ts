@@ -55,7 +55,7 @@ export class OrdersService {
         if (!table) throw new BadRequestException('Table is inactive or missing');
         // Serialize order submissions per table. This lets concurrent requests
         // reuse one open bill rather than racing to create two.
-        await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "RestaurantTable" WHERE "id" = ${tableId}::uuid AND "tenantId" = ${tenantId}::uuid FOR UPDATE`);
+        await tx.$queryRaw(Prisma.sql`SELECT id FROM RestaurantTable WHERE id = ${tableId} AND tenantId = ${tenantId} FOR UPDATE`);
         bill = await tx.bill.findFirst({ where: { tenantId, tableId, status: 'OPEN' } });
       }
       if (!bill) bill = await tx.bill.create({ data: { tenantId, tableId, status: 'OPEN' } });

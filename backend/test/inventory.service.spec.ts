@@ -8,7 +8,7 @@ describe('InventoryService', () => {
   it('allocates an SKU and saves opening quantity with its movement atomically', async () => {
     const createdItem = { id: 'item-id', sku: 'INV-000042', currentQuantity: 50 };
     const tx = {
-      $queryRaw: jest.fn().mockResolvedValue([{ value: 42n }]),
+      inventorySkuSequence: { create: jest.fn().mockResolvedValue({ value: 42n }) },
       inventoryItem: { create: jest.fn().mockResolvedValue(createdItem) },
       stockMovement: { create: jest.fn().mockResolvedValue({ id: 'movement-id' }) },
     };

@@ -25,8 +25,8 @@ export class InventoryService {
     const { initialQuantity = 0, sku, ...fields } = dto;
     const tenantId = request.tenantId!;
     return this.prisma.$transaction(async (tx) => {
-      const sequence = await tx.$queryRaw<Array<{ value: bigint }>>`SELECT nextval('"InventorySkuSequence"') AS value`;
-      const generatedSku = `INV-${sequence[0].value.toString().padStart(6, '0')}`;
+      const sequence = await tx.inventorySkuSequence.create({ data: {}, select: { value: true } });
+      const generatedSku = `INV-${sequence.value.toString().padStart(6, '0')}`;
       const item = await tx.inventoryItem.create({
         data: { ...fields, tenantId, sku: sku?.trim() || generatedSku, currentQuantity: initialQuantity },
       });
@@ -75,8 +75,8 @@ export class InventoryService {
 
     return this.prisma.$transaction(async (tx) => {
       const [item] = await tx.$queryRaw<Array<{ id: string; name: string; currentQuantity: Prisma.Decimal }>>`
-        SELECT "id", "name", "currentQuantity" FROM "InventoryItem"
-        WHERE "id" = ${id}::uuid AND "tenantId" = ${tenantId}::uuid FOR UPDATE`;
+        SELECT id, name, currentQuantity FROM InventoryItem
+        WHERE id = ${id} AND tenantId = ${tenantId} FOR UPDATE`;
       if (!item) throw new NotFoundException('Inventory item not found');
       let next: number;
       try {

@@ -41,8 +41,8 @@ export class RecipeInventoryService {
     }
     for (const [inventoryItemId, quantity] of requirements) {
       const [item] = await tx.$queryRaw<Array<{ id: string; name: string; currentQuantity: Prisma.Decimal }>>`
-        SELECT "id", "name", "currentQuantity" FROM "InventoryItem"
-        WHERE "id" = ${inventoryItemId}::uuid AND "tenantId" = ${tenantId}::uuid FOR UPDATE`;
+        SELECT id, name, currentQuantity FROM InventoryItem
+        WHERE id = ${inventoryItemId} AND tenantId = ${tenantId} FOR UPDATE`;
       if (!item) throw new BadRequestException('Inventory item was not found in the active cafe');
       const next = Number(item.currentQuantity) - quantity;
       if (next < 0) throw new BadRequestException(`Insufficient stock for ${item.name}`);
