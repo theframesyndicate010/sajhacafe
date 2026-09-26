@@ -55,6 +55,8 @@ export const api = {
   createCategory: (body: { name: string }) => request<Category>("/categories", { method: "POST", body: JSON.stringify(body) }),
   menuItems: async () => (await request<Array<Omit<MenuItem, "category" | "price"> & { category?: Category | string; price: unknown }>>("/menu-items?activeOnly=true")).map((item) => ({ ...item, category: typeof item.category === "string" ? item.category : item.category?.name ?? "Uncategorized", price: parseApiPrice(item.price) })),
   createMenuItem: (body: { categoryId: string; name: string; price: number; inventoryItemId?: string }) => request<MenuItem>("/menu-items", { method: "POST", body: JSON.stringify(body) }),
+  updateMenuItem: (id: string, body: { categoryId: string; name: string; price: number; inventoryItemId: string | null }) => request(`/menu-items/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteMenuItem: (id: string) => request(`/menu-items/${encodeURIComponent(id)}`, { method: "DELETE" }),
   tables: () => request<RestaurantTable[]>("/tables"),
   createTable: (body: { tableNumber: string; capacity: number }) => request<RestaurantTable>("/tables", { method: "POST", body: JSON.stringify(body) }),
   createTables: (body: { prefix: string; count: number; capacity: number }) => request<RestaurantTable[]>("/tables/bulk", { method: "POST", body: JSON.stringify(body) }),

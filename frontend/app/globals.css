@@ -374,6 +374,12 @@
 .printer-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .printer-toggle, .printer-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .printer-toggle input { width: auto; }
+.printer-status { display:flex; align-items:center; flex-wrap:wrap; gap:9px; padding:11px 12px; border:1px solid var(--border-color); border-radius:9px; background:#f8fafc; }
+.printer-status-dot { width:10px; height:10px; border-radius:50%; background:#94a3b8; }
+.printer-status-connected .printer-status-dot { background:#16a34a; }
+.printer-status-printing .printer-status-dot, .printer-status-connecting .printer-status-dot { background:#d97706; }
+.printer-status-error .printer-status-dot { background:#dc2626; }
+.printer-status-ready .printer-status-dot { background:#2563eb; }
 @media (max-width: 640px) { .printer-settings-grid { grid-template-columns: 1fr; } }
 
 .receipt-heading {
@@ -885,6 +891,21 @@
 @media (max-width: 600px) {
   .table-create-fields { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .table-create-fields .btn { width: 100%; }
+}
+
+/* Keep the POS current-order panel pinned above the mobile viewport bottom. */
+@media (max-width: 900px) {
+  .pos { padding-bottom: calc(44dvh + 24px); }
+  .pos .order {
+    position: fixed;
+    z-index: 1000;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    max-height: min(44dvh, calc(100dvh - 88px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }
 
 .bills-archive { display: grid; min-width: 0; max-width: 100%; gap: 20px; }

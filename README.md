@@ -59,7 +59,8 @@ The health endpoint checks the database connection. The backend must remain runn
 - Serve the production site over HTTPS. Local development on `localhost` is also treated as secure by browsers.
 - Use the in-app **Install app** button where the browser supports a direct prompt. On iPhone or iPad, use the browser share menu and choose **Add to Home Screen**. Other browsers may expose **Install app** or **Add to Home Screen** from their menu; support varies by browser and operating system.
 - The service worker caches only the app shell, icons, and offline message. Orders, payments, and other cafe data always require a connection to the API.
-- Pair or add a printer in the device or operating-system printer settings, then select it in the browser's print dialog from a bill. Direct silent printing cannot be provided consistently across all browsers and devices; that needs printer-specific integration.
+- Configure the XP-C2008 from **Settings → Printer settings & test**. Chrome can send ESC/POS over Bluetooth Classic SPP through Web Serial (desktop Chrome 117+, Android Chrome 138+) once the printer has been paired with the device. Bluetooth LE is a distinct BLE/GATT method and is not assumed to match the printer's Bluetooth profile.
+- Use **Thermal Print** for direct printer bytes or **System Print** for the browser/OS print dialog. WebUSB direct printing requires an unclaimed bulk interface; the OS driver and local bridge are fallbacks. See [XP-C2008 printing](docs/XP-C2008-PRINTING.md) for setup and limitations.
 
 ## Run everything with Docker
 

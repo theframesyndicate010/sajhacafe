@@ -18,8 +18,8 @@ For a physical phone during development, use the computer's LAN address in `pwaU
 
 1. Install and launch the debug APK on the Android phone.
 2. Allow Sajha Cafe's **Nearby devices** permission.
-3. Pair Printer001 in Android **Settings → Bluetooth** first. The app does not scan, pair automatically, or embed the PIN.
-4. Open Sajha Cafe **Settings → Printer**, select the paired printer, press **Connect Printer**, then **Test Print**. Save paper width, copies, encoding, and auto-print settings in the PWA.
-5. Open a bill and use **Thermal Print**, or enable auto print to send on receipt navigation after a successful sale.
+3. Pair the XP-C2008 in Android **Settings → Bluetooth** first. The app does not scan, pair automatically, or embed the PIN.
+4. Open Sajha Cafe **Settings → Printer settings & test**, select the paired printer, press **Connect**, then **Test Print**. Keep paper width at 58 mm for the supplied printer label.
+5. Open a bill and use **Thermal Print**. The print status confirms the ESC/POS write completed; inspect the paper because the printer does not report physical paper output.
 
-The app requests only `BLUETOOTH_CONNECT`, uses secure SPP/RFCOMM sockets, and accepts native messages only from the exact configured PWA origin and top-level frame. Android Bluetooth permission and physical-device printer testing are still required before calling a mobile print successful. The printer returns no paper sensor acknowledgement, so native `printed` means the socket write completed.
+The app requests only `BLUETOOTH_CONNECT`, uses secure SPP/RFCOMM sockets, and accepts native messages only from the exact configured PWA origin and top-level frame. Current Chrome can also use Web Serial over Bluetooth RFCOMM directly (Chrome 138+ on Android); the wrapper remains a fallback for older/incompatible browser builds. The XP-C2008's exact Bluetooth profile and physical print still need confirmation on the printer itself.

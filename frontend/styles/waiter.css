@@ -114,11 +114,11 @@
 .waiter-menu-category { color: var(--text-muted); font-size: 11px; font-weight: 650; }
 .waiter-add-item { display: flex; align-items: center; gap: 5px; color: var(--primary-blue); font-size: 12px; font-weight: 750; }
 .waiter-no-menu { grid-column: 1 / -1; padding: 25px 0; text-align: center; }
-.waiter-current-order { position: sticky; top: 82px; min-width: 0; box-sizing: border-box; padding: 21px; border: 1px solid var(--border-color); border-radius: 16px; background: var(--card-bg); box-shadow: var(--card-shadow); }
+.waiter-current-order { position: sticky; top: auto; bottom: 18px; align-self: end; min-width: 0; box-sizing: border-box; padding: 21px; border: 1px solid var(--border-color); border-radius: 16px; background: var(--card-bg); box-shadow: var(--card-shadow); }
 .waiter-order-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 16px; border-bottom: 1px solid #e8edf4; }
 .waiter-order-title .eyebrow { margin-bottom: 4px; overflow-wrap: anywhere; }
 .waiter-order-count { flex-shrink: 0; color: #74839a; font-size: 12px; }
-.waiter-empty-order { display: grid; min-height: 220px; place-content: center; justify-items: center; color: #98a5b7; text-align: center; }
+.waiter-empty-order { display: grid; place-content: center; justify-items: center; color: #98a5b7; text-align: center; }
 .waiter-empty-order p { max-width: 190px; color: #75849a; font-size: 13px; }
 .waiter-order-lines { max-height: min(55vh, 570px); overflow: auto; }
 .waiter-order-line { padding: 15px 0; border-bottom: 1px solid #edf0f5; }
@@ -199,7 +199,7 @@
   .waiter-sidebar nav { width: 100%; }
   .waiter-sidebar nav a,.waiter-sidebar > button { justify-content: center; padding: 10px 4px; }
   .waiter-sidebar nav a span,.waiter-sidebar > button span { display: none; }
-  .waiter-current-order { top: 74px; }
+  .waiter-current-order { bottom: 18px; }
 }
 
 @media (max-width: 850px) {
@@ -247,6 +247,33 @@
   .waiter-quantity { justify-content: flex-end; }
   .waiter-order-actions,.waiter-bill-toolbar { align-items: stretch; flex-direction: column; }
   .waiter-submit-success { align-items: flex-start; flex-direction: column; }
+}
+
+/* On phone and tablet widths, keep the order pinned while menu content scrolls. */
+@media (max-width: 850px) {
+  .waiter-pos-layout { grid-template-columns: minmax(0, 1fr); padding-bottom: calc(46dvh + 16px); }
+  .waiter-current-order {
+    position: fixed;
+    z-index: 1050;
+    right: 12px;
+    bottom: calc(66px + env(safe-area-inset-bottom) + 12px);
+    left: 88px; /* Leave room for the collapsed tablet navigation. */
+    max-height: min(46dvh, calc(100dvh - 150px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .waiter-order-lines { max-height: 20dvh; overflow-y: auto; }
+}
+
+/* The phone navigation is fixed at the bottom, so lift the order panel above it. */
+@media (max-width: 700px) {
+  .waiter-pos-layout { padding-bottom: calc(46dvh + 16px); }
+  .waiter-current-order {
+    right: 12px;
+    bottom: calc(66px + env(safe-area-inset-bottom) + 12px);
+    left: 12px;
+    max-height: min(46dvh, calc(100dvh - 210px));
+  }
 }
 
 @media print {

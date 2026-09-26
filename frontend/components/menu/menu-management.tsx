@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api/client";
+import { api, type MenuItem } from "@/lib/api/client";
 
 export function MenuManagement() {
   const queryClient = useQueryClient();
@@ -16,6 +16,11 @@ export function MenuManagement() {
   const [itemCategory, setItemCategory] = useState("");
   const [itemPrice, setItemPrice] = useState("");
   const [inventoryItemId, setInventoryItemId] = useState("");
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editPrice, setEditPrice] = useState("");
+  const [editInventoryItemId, setEditInventoryItemId] = useState("");
   const [formError, setFormError] = useState("");
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ["categories"] });
@@ -31,6 +36,19 @@ export function MenuManagement() {
     onSuccess: () => { refresh(); void queryClient.invalidateQueries({ queryKey: ["inventory"] }); setItemName(""); setItemPrice(""); setInventoryItemId(""); setFormError(""); },
     onError: (error) => setFormError(error instanceof Error ? error.message : "Unable to create menu item."),
   });
+  const editMutation = useMutation({
+    mutationFn: () => {
+      if (!editingItem) throw new Error("Select a menu item to edit.");
+      return api.updateMenuItem(editingItem.id, { categoryId: editCategory, name: editName.trim(), price: Number(editPrice), inventoryItemId: editInventoryItemId || null });
+    },
+    onSuccess: () => { refresh(); void queryClient.invalidateQueries({ queryKey: ["inventory"] }); setEditingItem(null); setFormError(""); },
+    onError: (error) => setFormError(error instanceof Error ? error.message : "Unable to update menu item."),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.deleteMenuItem(id),
+    onSuccess: () => { refresh(); void queryClient.invalidateQueries({ queryKey: ["inventory"] }); setFormError(""); },
+    onError: (error) => setFormError(error instanceof Error ? error.message : "Unable to delete menu item."),
+  });
   const addCategory = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (categoryName.trim()) categoryMutation.mutate();
@@ -39,6 +57,17 @@ export function MenuManagement() {
     event.preventDefault();
     const price = Number(itemPrice);
     if (itemName.trim() && itemCategory && Number.isFinite(price) && price > 0) itemMutation.mutate();
+  };
+  const startEdit = (item: MenuItem) => {
+    setEditingItem(item); setEditName(item.name); setEditCategory(item.categoryId ?? ""); setEditPrice(String(item.price)); setEditInventoryItemId(item.inventoryItemId ?? ""); setFormError("");
+  };
+  const saveEdit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const price = Number(editPrice);
+    if (editName.trim() && editCategory && Number.isFinite(price) && price >= 0) editMutation.mutate();
+  };
+  const deleteItem = (item: MenuItem) => {
+    if (window.confirm(`Delete “${item.name}” from the active menu? Past bills will remain unchanged.`)) deleteMutation.mutate(item.id);
   };
 
   return (
@@ -66,7 +95,17 @@ export function MenuManagement() {
       {(categoriesQuery.error || itemsQuery.error) && <p className="error" role="alert">Unable to load the active cafe menu.</p>}
       <section className="card menu-manager-list">
         <div className="menu-manager-list-heading"><div><h2>Menu items</h2><p className="muted">{items.length} {items.length === 1 ? "item" : "items"} across {categories.length} {categories.length === 1 ? "category" : "categories"}</p></div></div>
-        {items.length ? <div className="menu-manager-table-wrap"><table className="table"><thead><tr><th>Item</th><th>Category</th><th>Price</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td>{item.name}</td><td><span className="tag">{item.category}</span></td><td>NPR {item.price}</td></tr>)}</tbody></table></div> : <p className="empty">No menu items yet. Add a category, then create your first menu item.</p>}
+        {editingItem && <form className="card menu-manager-form" onSubmit={saveEdit}>
+          <h2>Edit menu item</h2>
+          <label className="field">Item name<input autoComplete="off" onChange={(event) => setEditName(event.target.value)} required value={editName} /></label>
+          <div className="menu-item-form-fields">
+            <label className="field">Category<select onChange={(event) => setEditCategory(event.target.value)} required value={editCategory}><option value="">Select a category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+            <label className="field">Price (NPR)<input min="0" onChange={(event) => setEditPrice(event.target.value)} required step="0.01" type="number" value={editPrice} /></label>
+          </div>
+          <label className="field">Inventory product <span className="muted">(optional)</span><select onChange={(event) => setEditInventoryItemId(event.target.value)} value={editInventoryItemId}><option value="">No direct inventory link</option>{(inventoryQuery.data ?? []).filter((stockItem) => stockItem.isActive && (stockItem.id === editingItem.inventoryItemId || !items.some((menuItem) => menuItem.inventoryItemId === stockItem.id))).map((stockItem) => <option key={stockItem.id} value={stockItem.id}>{stockItem.name} · {stockItem.sku}</option>)}</select></label>
+          <div className="printer-actions"><button className="btn" disabled={editMutation.isPending} type="submit">{editMutation.isPending ? "Saving…" : "Save changes"}</button><button className="btn secondary" disabled={editMutation.isPending} onClick={() => setEditingItem(null)} type="button">Cancel</button></div>
+        </form>}
+        {items.length ? <div className="menu-manager-table-wrap"><table className="table"><thead><tr><th>Item</th><th>Category</th><th>Price</th><th>Actions</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td>{item.name}</td><td><span className="tag">{item.category}</span></td><td>NPR {item.price}</td><td><div className="printer-actions"><button className="btn secondary" disabled={deleteMutation.isPending} onClick={() => startEdit(item)} type="button">Edit</button><button className="btn secondary" disabled={deleteMutation.isPending} onClick={() => deleteItem(item)} type="button">Delete</button></div></td></tr>)}</tbody></table></div> : <p className="empty">No menu items yet. Add a category, then create your first menu item.</p>}
       </section>
     </section>
   );

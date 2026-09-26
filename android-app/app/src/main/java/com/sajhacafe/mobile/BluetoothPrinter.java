@@ -29,6 +29,7 @@ final class BluetoothPrinter {
     private static final String ID_KEY = "opaque_id";
     private final Context context;
     private final SharedPreferences prefs;
+    private BluetoothSocket socket;
 
     BluetoothPrinter(Context context) {
         this.context = context.getApplicationContext();
@@ -66,6 +67,7 @@ final class BluetoothPrinter {
             JSONObject item = pairedPrinters().getJSONObject(i);
             if (id.equals(item.getString("id"))) {
                 String address = findAddress(id);
+                if (!address.equals(prefs.getString(ADDRESS_KEY, ""))) closeSocket();
                 prefs.edit().putString(ADDRESS_KEY, address).putString(ID_KEY, id).apply();
                 return new JSONObject().put("selected", true).put("id", id).put("name", item.getString("name"));
             }
@@ -78,31 +80,33 @@ final class BluetoothPrinter {
         String address = prefs.getString(ADDRESS_KEY, "");
         if (id.isEmpty() || address.isEmpty()) return new JSONObject().put("status", "running").put("transport", "unconfigured");
         BluetoothDevice device = adapter().getRemoteDevice(address);
-        return new JSONObject().put("status", "running").put("transport", "android-bluetooth").put("printerId", id).put("printerName", safeName(device));
+        boolean connected = socket != null && socket.isConnected();
+        return new JSONObject().put("status", connected ? "connected" : "not-connected").put("transport", "android-bluetooth").put("connected", connected).put("printerId", id).put("printerName", safeName(device));
     }
 
     JSONObject connect(String requestedId) throws Exception {
         BluetoothDevice device = selectedDevice(requestedId);
-        BluetoothSocket socket = open(device);
-        socket.close();
+        open(device);
         return new JSONObject().put("status", "connected").put("printerId", requestedId).put("printerName", safeName(device));
     }
 
     JSONObject print(String requestedId, byte[] bytes, int copies) throws Exception {
         BluetoothDevice device = selectedDevice(requestedId);
-        BluetoothSocket socket = open(device);
-        try (OutputStream output = socket.getOutputStream()) {
+        BluetoothSocket connectedSocket = open(device);
+        try {
+            OutputStream output = connectedSocket.getOutputStream();
             int safeCopies = Math.max(1, Math.min(copies, 5));
             for (int i = 0; i < safeCopies; i++) output.write(bytes);
             output.flush();
-            output.flush();
-        } finally {
-            socket.close();
+        } catch (Exception error) {
+            closeSocket();
+            throw new Exception("Printer write failed. Check printer power and Bluetooth pairing, then reconnect.", error);
         }
         return new JSONObject().put("status", "printed").put("printerName", safeName(device));
     }
 
     JSONObject disconnect() {
+        closeSocket();
         prefs.edit().remove(ADDRESS_KEY).remove(ID_KEY).apply();
         return new JSONObject().put("status", "disconnected");
     }
@@ -115,16 +119,25 @@ final class BluetoothPrinter {
         return adapter().getRemoteDevice(address);
     }
 
-    private BluetoothSocket open(BluetoothDevice device) throws Exception {
-        BluetoothSocket socket = device.createRfcommSocketToServiceRecord(SPP_UUID);
+    private synchronized BluetoothSocket open(BluetoothDevice device) throws Exception {
+        if (socket != null && socket.isConnected()) return socket;
+        closeSocket();
+        BluetoothSocket pending = device.createRfcommSocketToServiceRecord(SPP_UUID);
         try {
             adapter().cancelDiscovery();
-            socket.connect();
+            pending.connect();
+            socket = pending;
             return socket;
         } catch (Exception error) {
-            try { socket.close(); } catch (Exception ignored) { }
+            try { pending.close(); } catch (Exception ignored) { }
             throw new Exception("Bluetooth unavailable: could not connect to " + safeName(device) + " over SPP/RFCOMM. Confirm it is on, paired, and not connected to another device.", error);
         }
+    }
+
+    private synchronized void closeSocket() {
+        if (socket == null) return;
+        try { socket.close(); } catch (Exception ignored) { }
+        socket = null;
     }
 
     private String findAddress(String id) throws Exception {

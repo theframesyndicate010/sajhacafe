@@ -146,6 +146,7 @@ public final class MainActivity extends ComponentActivity {
 
     @Override protected void onDestroy() {
         printExecutor.shutdownNow();
+        if (printer != null) printer.disconnect();
         if (webView != null) webView.destroy();
         super.onDestroy();
     }
