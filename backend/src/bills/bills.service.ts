@@ -62,7 +62,9 @@ export class BillsService {
 
   async close(id: string, tenantId: string) {
     const billId = await this.prisma.$transaction(async (tx) => {
-      const bill = await tx.bill.findFirst({ where: { id, tenantId }, select: { id: true, tableId: true, status: true } });
+      // Accept an order id too, like get() and markPrinted(), so a receipt
+      // opened from an order can be closed without resolving the bill first.
+      const bill = await tx.bill.findFirst({ where: { tenantId, OR: [{ id }, { orders: { some: { id } } }] }, select: { id: true, tableId: true, status: true } });
       if (!bill) throw new NotFoundException('Bill not found');
       if (bill.tableId) {
         // Match order creation's table lock so a new customer gets a fresh bill.

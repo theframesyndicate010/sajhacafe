@@ -204,6 +204,19 @@ spec('live multi-tenant workflows (temporary fixtures)', () => {
     const managedUser = await call('/users', { method: 'POST', cookie: adminCookie, body: { name: 'Workflow user', email: `managed-${Date.now()}@example.test`, password, roleId: roles.get('CASHIER') } });
     expect(managedUser.status).toBe(201);
     userIds.push(managedUser.json.data.id);
+    // The admin role is only granted by the seed script, never from the app.
+    const adminAttempt = await call('/users', { method: 'POST', cookie: adminCookie, body: { name: 'Sneaky admin', email: `sneaky-${Date.now()}@example.test`, password, roleId: roles.get('ADMIN') } });
+    expect(adminAttempt.status).toBe(400);
+    const promoteAttempt = await call(`/users/${managedUser.json.data.id}`, { method: 'PATCH', cookie: adminCookie, body: { roleId: roles.get('ADMIN') } });
+    expect(promoteAttempt.status).toBe(400);
+    // The rejected promotion must not have changed the stored role.
+    const listedUser = (await call('/users', { cookie: adminCookie })).json.data.find((user: { id: string }) => user.id === managedUser.json.data.id);
+    expect(listedUser.memberships[0].role.name).toBe('CASHIER');
+    // Resubmitting an admin's own role is a no-op, so renaming an admin works.
+    const listedAdmin = (await call('/users', { cookie: adminCookie })).json.data.find((user: { memberships: Array<{ role: { name: string } }> }) => user.memberships[0]?.role.name === 'ADMIN');
+    const adminEdit = await call(`/users/${listedAdmin.id}`, { method: 'PATCH', cookie: adminCookie, body: { name: 'Renamed tenant admin', roleId: roles.get('ADMIN') } });
+    expect(adminEdit.status).toBe(200);
+    expect(adminEdit.json.data.name).toBe('Renamed tenant admin');
     const editedUser = await call(`/users/${managedUser.json.data.id}`, { method: 'PATCH', cookie: adminCookie, body: { name: 'Updated workflow user' } });
     expect(editedUser.json.data.name).toBe('Updated workflow user');
     const passwordChanged = await call(`/users/${managedUser.json.data.id}/password`, { method: 'POST', cookie: adminCookie, body: { password: 'new-smoke-password' } });
@@ -215,5 +228,64 @@ spec('live multi-tenant workflows (temporary fixtures)', () => {
     expect((await call('/settings', { method: 'PATCH', cookie: adminCookie, body: { logo } })).status).toBe(200);
     expect((await call('/settings', { cookie: waiterCookie })).json.data.logo).toBe(logo);
     expect((await call('/settings', { method: 'PATCH', cookie: adminCookie, body: { logo: null } })).status).toBe(200);
+  }, 300_000);
+
+  it('closes a bill when a customer leaves and starts a new bill on the next order', async () => {
+    expect(roles.size).toBe(3);
+    const testTenants = await prisma.tenant.findMany({ where: { id: { in: tenantIds } }, orderBy: { slug: 'asc' }, include: { memberships: { include: { user: true, role: true } } } });
+    const tenantA = testTenants[0];
+    const tenantB = testTenants[1];
+    const emailFor = (tenant: typeof tenantA, roleName: string) => tenant.memberships.find((membership) => membership.role.name === roleName)!.user.email;
+    const adminCookie = await login(emailFor(tenantA, 'ADMIN'));
+    const waiterCookie = await login(emailFor(tenantA, 'WAITER'));
+    const otherWaiterCookie = await login(emailFor(tenantB, 'WAITER'));
+
+    const tableResult = await call('/tables/bulk', { method: 'POST', cookie: adminCookie, body: { prefix: 'Closing', count: 1, capacity: 4 } });
+    expect(tableResult.status).toBe(201);
+    const table = tableResult.json.data[0];
+    expect(table.status).toBe('AVAILABLE');
+
+    const categoryResult = await call('/categories', { method: 'POST', cookie: adminCookie, body: { name: 'Closing workflow food' } });
+    const menuResult = await call('/menu-items', { method: 'POST', cookie: adminCookie, body: { categoryId: categoryResult.json.data.id, name: 'Closing Burger', price: 250 } });
+    expect(menuResult.status).toBe(201);
+
+    const firstOrder = await call('/orders', { method: 'POST', cookie: waiterCookie, body: { orderType: 'DINE_IN', tableId: table.id, items: [{ menuItemId: menuResult.json.data.id, quantity: 1 }] } });
+    expect(firstOrder.status).toBe(201);
+    const firstBill = (await call('/bills', { cookie: waiterCookie })).json.data.find((bill: { tableId: string; status: string }) => bill.tableId === table.id && bill.status === 'OPEN');
+    expect(firstBill).toBeDefined();
+    expect((await call('/tables', { cookie: waiterCookie })).json.data.find((entry: { id: string }) => entry.id === table.id).status).toBe('OCCUPIED');
+
+    // Closing a table is an explicit waiter action, so the endpoint must exist
+    // and answer 201 instead of the router's 404 "Cannot POST".
+    const closed = await call(`/bills/${firstBill.id}/close`, { method: 'POST', cookie: waiterCookie });
+    expect(closed.status).toBe(201);
+    expect(closed.json.data.status).toBe('CLOSED');
+    expect(closed.json.data.closedAt).not.toBeNull();
+    expect((await call('/tables', { cookie: waiterCookie })).json.data.find((entry: { id: string }) => entry.id === table.id).status).toBe('AVAILABLE');
+    expect((await call('/bills', { cookie: waiterCookie })).json.data.some((bill: { id: string; status: string }) => bill.id === firstBill.id && bill.status === 'OPEN')).toBe(false);
+
+    // Closing an already closed bill stays a no-op instead of failing.
+    const closedAgain = await call(`/bills/${firstBill.id}/close`, { method: 'POST', cookie: waiterCookie });
+    expect(closedAgain.status).toBe(201);
+    expect(closedAgain.json.data.status).toBe('CLOSED');
+    expect(closedAgain.json.data.closedAt).toBe(closed.json.data.closedAt);
+
+    // The next customer at the same table starts a new bill.
+    const secondOrder = await call('/orders', { method: 'POST', cookie: waiterCookie, body: { orderType: 'DINE_IN', tableId: table.id, items: [{ menuItemId: menuResult.json.data.id, quantity: 2 }] } });
+    expect(secondOrder.status).toBe(201);
+    const secondBill = (await call('/bills', { cookie: waiterCookie })).json.data.find((bill: { tableId: string; status: string }) => bill.tableId === table.id && bill.status === 'OPEN');
+    expect(secondBill).toBeDefined();
+    expect(secondBill.id).not.toBe(firstBill.id);
+    expect(secondBill.totalAmount).toBe(500);
+    expect((await call('/tables', { cookie: waiterCookie })).json.data.find((entry: { id: string }) => entry.id === table.id).status).toBe('OCCUPIED');
+
+    // Orders can be addressed by id, so closing must accept one too.
+    const secondBillFromOrder = await call(`/bills/${secondOrder.json.data.id}/close`, { method: 'POST', cookie: waiterCookie });
+    expect(secondBillFromOrder.status).toBe(201);
+    expect(secondBillFromOrder.json.data.id).toBe(secondBill.id);
+
+    expect((await call('/bills/00000000-0000-4000-8000-000000000000/close', { method: 'POST', cookie: waiterCookie })).status).toBe(404);
+    expect((await call(`/bills/${secondBill.id}/close`, { method: 'POST', cookie: otherWaiterCookie })).status).toBe(404);
+    expect((await call(`/bills/${firstBill.id}/close`, { method: 'POST' })).status).toBe(401);
   }, 300_000);
 });

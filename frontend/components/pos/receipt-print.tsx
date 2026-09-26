@@ -40,7 +40,7 @@ export function ReceiptPrint({ receiptId }: { receiptId: string }) {
     };
   }, [isWaiter, order, queryClient, receiptId]);
   if (orderQuery.isLoading || settingsQuery.isLoading) return <section className="card"><p className="muted">Loading receipt…</p></section>;
-  if (!order || orderQuery.error) return <section className="card"><h1 className="page-title">Bill not found</h1><p className="muted">This bill is not available in the active cafe.</p><Link className="btn" href={backPath}>{backPath === "/waiter" ? "Back to bills" : "Back to POS"}</Link></section>;
+  if (!order || orderQuery.error) return <section className="card"><h1 className="page-title">Bill not found</h1><p className="muted">This bill is not available in the active cafe.</p><Link className="btn" href={backPath}>{isWaiter ? "Back to bills" : "Back to POS"}</Link></section>;
   const payments = order.payments ?? [];
   const paid = payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
   return (

@@ -151,7 +151,8 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
       }).filter((part) => part.amount > 0);
       if (paymentMethod === "Split") await api.createSplitPayment(order.id, payments);
       else await api.createPayment(order.id, payments[0]);
-      return selectedBill ? selectedBill.id : order.id;
+      // The bill branch above already returned, so only a fresh order reaches here.
+      return order.id;
     },
     onSuccess: (completedOrderId) => {
       clear();

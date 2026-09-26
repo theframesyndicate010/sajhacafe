@@ -54,6 +54,61 @@ cd frontend && npm run dev
 
 The health endpoint checks the database connection. The backend must remain running for login, POS, and bills to work.
 
+## Run everything with Docker
+
+If you would rather not install Node dependencies or MySQL locally, one command
+starts MySQL, applies migrations, seeds an admin account, and serves the app:
+
+```bash
+docker compose up --build
+```
+
+No configuration file is required. Every value in `docker-compose.yml` has a
+working default, and Compose reads a `.env` file next to it if you want to
+override any of them.
+
+| Service    | URL                            | Notes                                        |
+| ---------- | ------------------------------ | -------------------------------------------- |
+| Frontend   | <http://localhost:3001>        | log in here                                  |
+| Backend    | <http://localhost:3000/api/v1> | Swagger UI at `/docs` outside production     |
+| MySQL      | `127.0.0.1:3306/sajhacafe`     | user `cafe_user`, password `cafe_local_dev_pw` |
+
+The default login is `admin@sajhacafe.test` / `sajhacafe123`, and
+`SEED_DEMO_DATA` seeds six tables plus a starter menu so the POS is usable
+immediately. Change `SEED_ADMIN_PASSWORD` before exposing this anywhere real.
+
+Startup order is enforced with health checks: `migrate` waits for MySQL and runs
+`prisma migrate deploy` followed by `scripts/seed-admin.ts`, then exits; the
+backend waits for that to succeed; the frontend waits for the backend to report
+healthy. Both seeding steps are idempotent, so restarts are safe.
+
+```bash
+docker compose up --build -d   # background
+docker compose logs -f backend  # follow logs
+docker compose down             # stop, keep data
+docker compose down -v          # stop and delete the database volume
+```
+
+To go back to running the apps directly, stop the stack first so it releases the
+ports: `docker compose down`.
+
+### Container notes
+
+- The frontend image bakes `NEXT_PUBLIC_API_URL` at build time, because Next.js
+  inlines `NEXT_PUBLIC_*` values into the client bundle and `next.config.ts`
+  reads the same variable for the `/api` rewrite. The browser only ever calls
+  `/api` on the frontend origin; the rewrite proxies to `http://backend:3000`
+  inside the Compose network. Changing the backend origin therefore needs a
+  rebuild, not just a restart.
+- `backend/Dockerfile` exposes two targets. `runner` is the lean runtime image
+  the `backend` service uses. `builder` carries the full dependency tree and is
+  what the one-shot `migrate` service runs in, because `prisma migrate deploy`
+  needs the Prisma CLI and the seed needs `tsx` — both dev dependencies that are
+  absent from the runtime image.
+- The admin account is seeded by `backend/scripts/seed-admin.ts` rather than
+  `npm run prisma:seed`, because `prisma/seed.ts` and `prisma/seed-user.sql`
+  are both listed in `backend/.gitignore` and so are absent from a fresh clone.
+
 ## Cashier and waiter bills
 
 - Waiters create orders and can view bills. Waiters do not have bill-print permission.
@@ -79,9 +134,11 @@ MySQL has no PostgreSQL-style row-level security. The application continues to s
 - `frontend/components/` — shared interface components
 - `frontend/lib/` — API client and auth helpers
 - `backend/src/` — NestJS API modules and services
+- `backend/scripts/seed-admin.ts` — idempotent first-run admin and demo data seed
 - `backend/prisma/` — MySQL schema, active migrations, and seed script
 - `backend/prisma/postgresql-legacy/` — archived PostgreSQL migrations and RLS reference
 - `frontend/legacy/vite/` — previous frontend retained for reference; it is not used by the active Next.js app
+- `docker-compose.yml` — MySQL, backend, and frontend for local containerised runs
 
 ## Checks
 
@@ -90,4 +147,7 @@ cd frontend && npm run lint
 cd backend && npm run lint
 ```
 
-The backend `lint` script runs the TypeScript compiler with `--noEmit`.
+The backend `lint` script runs the TypeScript compiler with `--noEmit`. The
+frontend `lint` script runs ESLint; `npx tsc --noEmit` there is also worth
+running, because `next build` type-checks and will fail the Docker build on
+errors that `next dev` tolerates.

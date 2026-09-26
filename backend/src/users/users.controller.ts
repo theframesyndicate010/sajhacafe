@@ -27,8 +27,7 @@ export class UsersController {
     const email = userData.email.trim().toLowerCase();
     const existingUser = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
     if (existingUser) throw new ConflictException('An account with this email already exists');
-    const role = await this.prisma.role.findUnique({ where: { id: roleId }, select: { id: true } });
-    if (!role) throw new NotFoundException('Role not found');
+    await this.assertAssignableRole(roleId);
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({ data: { ...userData, email, name: userData.name.trim(), phone: userData.phone?.trim() || null, passwordHash: await argon2.hash(password) } });
       await tx.tenantMembership.create({ data: { tenantId: request.tenantId!, userId: user.id, roleId } });
@@ -37,7 +36,7 @@ export class UsersController {
   }
   @Patch(':id') @RequirePermission('users.manage') async update(@Param('id') id: string, @Body() dto: UpdateUserDto, @Req() request: Request) {
     const tenantId = request.tenantId!;
-    await this.assertMember(id, tenantId);
+    const membership = await this.assertMember(id, tenantId);
     const { roleId, email, ...profile } = dto;
     let normalizedEmail: string | undefined;
     if (email) {
@@ -47,9 +46,10 @@ export class UsersController {
       const duplicate = await this.prisma.user.findFirst({ where: { email: normalizedEmail, id: { not: id } } });
       if (duplicate) throw new ConflictException('An account with this email already exists');
     }
-    if (roleId) {
-      const role = await this.prisma.role.findUnique({ where: { id: roleId }, select: { id: true } });
-      if (!role) throw new NotFoundException('Role not found');
+    // Only guard an actual change. The edit form always resubmits the role, so
+    // saving an existing admin's name must not be blocked by its own role.
+    if (roleId && roleId !== membership.roleId) {
+      await this.assertAssignableRole(roleId);
     }
     if ((profile.name !== undefined || profile.phone !== undefined) && await this.prisma.tenantMembership.count({ where: { userId: id } }) > 1)
       throw new ConflictException('This account is shared by multiple cafes; its profile cannot be changed here');
@@ -82,5 +82,16 @@ export class UsersController {
   private async assertMember(userId: string, tenantId: string) {
     const membership = await this.prisma.tenantMembership.findUnique({ where: { tenantId_userId: { tenantId, userId } } });
     if (!membership) throw new NotFoundException('User not found in this cafe');
+    return membership;
+  }
+
+  // Cafe staff accounts cannot be given the cafe-wide admin role through the
+  // app. Blocking only creation would be pointless, since update() can promote
+  // an existing member, so both paths share this check. The first admin comes
+  // from the seed script instead.
+  private async assertAssignableRole(roleId: string) {
+    const role = await this.prisma.role.findUnique({ where: { id: roleId }, select: { id: true, name: true } });
+    if (!role) throw new NotFoundException('Role not found');
+    if (role.name === 'ADMIN') throw new BadRequestException('The admin role cannot be assigned from the users screen');
   }
 }
