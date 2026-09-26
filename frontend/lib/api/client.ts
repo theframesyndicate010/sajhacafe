@@ -14,7 +14,7 @@ export type Bill = { id: string; billNumber: string; status: "OPEN" | "CLOSED"; 
 export type KitchenOrder = { id: string; kotNumber: string; status: "PENDING" | "PREPARING" | "READY" | "COMPLETED" | "CANCELLED"; order: { table?: RestaurantTable | null }; items: { quantity: number | string; orderItem: { itemName: string } }[]; createdAt: string };
 export type InventoryItem = { id: string; name: string; sku?: string | null; unit: string; currentQuantity: number | string; minimumQuantity: number | string; costPrice: number | string; isActive: boolean };
 export type DashboardSummary = { sales: number | string; orders: number; pendingKot: number; preparingKot: number; readyKot: number; occupiedTables: number; availableTables: number; lowStockItems: number };
-export type RestaurantSettings = { id: string; businessName: string; address?: string | null; phone?: string | null; email?: string | null; logo?: string | null; currency: string; timezone: string; taxEnabled: boolean; taxRate: number | string; taxInclusive: boolean };
+export type RestaurantSettings = { id: string; businessName: string; address?: string | null; phone?: string | null; email?: string | null; logo?: string | null; taxNumber?: string | null; currency: string; timezone: string; taxEnabled: boolean; taxRate: number | string; taxInclusive: boolean };
 export type LoginInput = { email: string; password: string; tenantId?: string };
 export type CreateOrderInput = { orderType: "DINE_IN" | "TAKEAWAY"; tableId?: string; customerId?: string; items: { menuItemId: string; quantity: number; notes?: string }[]; notes?: string; discountAmount?: number };
 export type PaymentMethod = "CASH" | "CARD" | "ESEWA" | "KHALTI" | "BANK_TRANSFER" | "OTHER";
@@ -36,9 +36,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     console.error("API request could not reach the server", { path, error });
     throw new Error("Unable to reach the server. Check your connection and try again.");
   }
-  const body = (await response.json().catch(() => null)) as ApiEnvelope<T> | { success: false; error?: { message?: string } } | null;
+  const body = (await response.json().catch(() => null)) as ApiEnvelope<T> | { success: false; error?: { message?: string | string[] } } | null;
   if (!response.ok || !body?.success) {
-    const message = body && "error" in body ? body.error?.message : undefined;
+    const raw = body && "error" in body ? body.error?.message : undefined;
+    // ValidationPipe reports failures as an array of messages; flatten it so the
+    // UI shows one readable sentence instead of "a,b".
+    const message = Array.isArray(raw) ? raw.join("; ") : raw;
     console.error("API request failed", { path, status: response.status, message });
     throw new Error(message || `Request failed (${response.status})`);
   }
@@ -72,7 +75,7 @@ export const api = {
   startKot: (id: string) => request(`/kots/${id}/start`, { method: "POST" }),
   readyKot: (id: string) => request(`/kots/${id}/ready`, { method: "POST" }),
   completeKot: (id: string) => request(`/kots/${id}/complete`, { method: "POST" }),
-  settings: { get: () => request<RestaurantSettings>("/settings"), update: (body: Partial<Pick<RestaurantSettings, "businessName" | "address" | "phone" | "email" | "logo" | "taxEnabled" | "taxRate" | "taxInclusive" | "timezone">>) => request<RestaurantSettings>("/settings", { method: "PATCH", body: JSON.stringify(body) }) },
+  settings: { get: () => request<RestaurantSettings>("/settings"), update: (body: Partial<Pick<RestaurantSettings, "businessName" | "address" | "phone" | "email" | "logo" | "taxNumber" | "taxEnabled" | "taxRate" | "taxInclusive" | "timezone">>) => request<RestaurantSettings>("/settings", { method: "PATCH", body: JSON.stringify(body) }) },
   users: {
     list: () => request<ManagedUser[]>("/users"),
     roles: () => request<ManagedRole[]>("/users/roles"),

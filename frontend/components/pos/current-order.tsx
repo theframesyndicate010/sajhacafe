@@ -1,5 +1,6 @@
 import type { CartLine } from "@/store/pos-store";
 import type { Bill } from "@/lib/api/client";
+import { roundMoney } from "@/lib/money";
 
 const paymentMethods = ["Cash", "Card", "eSewa", "Khalti", "Bank Transfer", "Other", "Split"];
 const onlinePaymentMethods = ["eSewa", "Khalti", "Card", "Bank Transfer", "Other"];
@@ -79,10 +80,17 @@ export function CurrentOrder({
 }: CurrentOrderProps) {
   const cashPaid = Number(amountReceived) || 0;
   const onlinePaid = Number(onlineAmountReceived) || 0;
-  const paid = paymentMethod === "Split" ? cashPaid + onlinePaid : cashPaid;
-  const checkoutTotal = billDue;
+  const paid = roundMoney(paymentMethod === "Split" ? cashPaid + onlinePaid : cashPaid);
+  const checkoutTotal = roundMoney(billDue);
+  const appliedTender = roundMoney(Math.min(paid, checkoutTotal));
+  const dueAfterTender = roundMoney(Math.max(checkoutTotal - paid, 0));
+  const changeAfterTender = roundMoney(Math.max(paid - checkoutTotal, 0));
+  const leavesDue = paid > 0 && dueAfterTender > 0;
   const canAddManualItem = manualName.trim() && Number(manualPrice) > 0;
   const hasItems = items.length > 0;
+  const checkoutLabel = leavesDue
+    ? `Collect NPR ${appliedTender.toLocaleString()} · NPR ${dueAfterTender.toLocaleString()} due`
+    : `Checkout · NPR ${checkoutTotal.toLocaleString()}`;
 
   return (
     <aside className="card order">
@@ -198,7 +206,7 @@ export function CurrentOrder({
             <input
               min="0"
               onChange={(event) => onOnlineAmountReceivedChange(event.target.value)}
-              placeholder={`Remaining NPR ${Math.max(checkoutTotal - cashPaid, 0)}`}
+              placeholder={`Remaining NPR ${roundMoney(Math.max(checkoutTotal - cashPaid, 0))}`}
               type="number"
               value={onlineAmountReceived}
             />
@@ -207,10 +215,6 @@ export function CurrentOrder({
             Online reference <span className="muted">(optional)</span>
             <input value={reference} onChange={(event) => onReferenceChange(event.target.value)} placeholder="Transaction reference" />
           </label>
-          <p className="split-payment-summary">
-            Received NPR {paid} · Remaining NPR {Math.max(checkoutTotal - paid, 0)}
-            {paid > checkoutTotal && ` · Change NPR ${paid - checkoutTotal}`}
-          </p>
         </div>
       ) : (
         <label className="field">
@@ -232,7 +236,21 @@ export function CurrentOrder({
         </label>
       )}
 
-      {paymentMethod === "Cash" && <p className="muted" style={{ fontSize: 13 }}>Change: NPR {Math.max(paid - checkoutTotal, 0)}</p>}
+      {checkoutTotal > 0 && !amountReceived && paymentMethod !== "Split" && (
+        <button className="btn secondary pay-full-shortcut" onClick={() => onAmountReceivedChange(String(checkoutTotal))} type="button">
+          Pay full amount · NPR {checkoutTotal.toLocaleString()}
+        </button>
+      )}
+
+      <div className="payment-summary">
+        <div><span>Amount due</span><strong>NPR {checkoutTotal.toLocaleString()}</strong></div>
+        <div><span>Receiving now</span><strong>NPR {paid.toLocaleString()}</strong></div>
+        {leavesDue
+          ? <div className="payment-summary-due"><span>Left as due</span><strong>NPR {dueAfterTender.toLocaleString()}</strong></div>
+          : changeAfterTender > 0 && <div><span>Change</span><strong>NPR {changeAfterTender.toLocaleString()}</strong></div>}
+      </div>
+
+      {leavesDue && <p className="payment-due-note">NPR {dueAfterTender.toLocaleString()} will be saved as a due and can be collected later from the Due Payments page.</p>}
       </>}
       {errorMessage && <p className="error">{errorMessage}</p>}
       {orderId && <p className="tag">KOT sent · Order #{orderId}</p>}
@@ -240,13 +258,13 @@ export function CurrentOrder({
       {cashierBill ? <div className="form-row cashier-bill-actions" style={{ marginTop: 14 }}>
         {hasItems
           ? <button className="btn" disabled={isSendingKot} onClick={onAddToBill} type="button">{isSendingKot ? "Saving and sending…" : "Add items to bill"}</button>
-          : <><button className="btn" disabled={!billDue || isCheckingOut} onClick={onCheckout} type="button">{isCheckingOut ? "Processing…" : `Checkout · NPR ${billDue.toLocaleString()}`}</button><button className="btn secondary" disabled={isSendingKot} onClick={onPrintBill} type="button">Print bill</button></>}
+          : <><button className="btn" disabled={checkoutTotal <= 0 || paid <= 0 || isCheckingOut} onClick={onCheckout} type="button">{isCheckingOut ? "Processing…" : checkoutLabel}</button><button className="btn secondary" disabled={isSendingKot} onClick={onPrintBill} type="button">Print bill</button></>}
       </div> : <div className="form-row" style={{ marginTop: 14 }}>
         <button className="btn secondary" disabled={!hasItems || isSendingKot || Boolean(orderId)} onClick={onSendKot} type="button">
           {isSendingKot ? "Sending…" : orderId ? "KOT sent" : "Send to kitchen"}
         </button>
-        <button className="btn" disabled={!hasItems || isCheckingOut || checkoutTotal <= 0} onClick={onCheckout} type="button">
-          {isCheckingOut ? "Processing…" : `Checkout · NPR ${checkoutTotal}`}
+        <button className="btn" disabled={!hasItems || isCheckingOut || checkoutTotal <= 0 || paid <= 0} onClick={onCheckout} type="button">
+          {isCheckingOut ? "Processing…" : checkoutLabel}
         </button>
       </div>
       }

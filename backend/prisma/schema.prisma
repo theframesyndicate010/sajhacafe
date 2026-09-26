@@ -210,6 +210,8 @@ model RestaurantSettings {
   logo          String?  @db.MediumText
   phone         String?  @db.Text
   email         String?  @db.Text
+  /// Optional VAT/PAN registration number, printed on bills when present.
+  taxNumber     String?  @db.VarChar(50)
   currency      String   @default("NPR") @db.VarChar(10)
   timezone      String   @default("Asia/Kathmandu") @db.VarChar(50)
   taxEnabled    Boolean  @default(false)

@@ -103,6 +103,77 @@
   margin-top: 10px;
 }
 
+.pay-full-shortcut {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.payment-summary {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  background: #f8fafc;
+}
+
+.payment-summary>div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.payment-summary>div strong {
+  color: var(--text-dark);
+}
+
+.payment-summary-due {
+  padding-top: 6px;
+  border-top: 1px dashed var(--border-color);
+  color: #a4550b;
+  font-weight: 700;
+}
+
+.payment-summary-due strong {
+  color: #a4550b;
+}
+
+.payment-due-note {
+  margin: 8px 0 0;
+  color: #a4550b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.checkout-summary-banner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 12px 15px;
+  border: 1px solid #f0c48a;
+  border-radius: 10px;
+  color: #a4550b;
+  background: #fdf4e7;
+  font-size: 13px;
+}
+
+.checkout-summary-banner>span {
+  font-size: 13px;
+}
+
+.checkout-summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Laptop: retain four menu cards and a wide current-order panel. */
 @media (min-width: 901px) and (max-width: 1600px) {
   .menu-grid {

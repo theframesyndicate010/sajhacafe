@@ -1,14 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CurrentOrder } from "@/components/pos/current-order";
 import { MenuSelection } from "@/components/pos/menu-selection";
 import { api, type MenuItem, type PaymentMethod } from "@/lib/api/client";
+import { balanceDue, roundMoney, settledTotal } from "@/lib/money";
 import { usePosStore } from "@/store/pos-store";
 
 const toPaymentMethod = (method: string): PaymentMethod => ({ Cash: "CASH", Card: "CARD", eSewa: "ESEWA", Khalti: "KHALTI", "Bank Transfer": "BANK_TRANSFER", Other: "OTHER" }[method] as PaymentMethod ?? "OTHER");
+
+type CheckoutSummary = { target: string; paid: number; due: number };
 
 export function PosPage({ cashier = false }: { cashier?: boolean }) {
   const router = useRouter();
@@ -26,6 +30,7 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
   const [reference, setReference] = useState("");
   const [manualName, setManualName] = useState("");
   const [manualPrice, setManualPrice] = useState("");
+  const [checkoutSummary, setCheckoutSummary] = useState<CheckoutSummary | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [menuCategories, setMenuCategories] = useState<string[]>([]);
@@ -41,10 +46,10 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
   const tables = useMemo(() => apiTables.map((entry) => entry.tableNumber), [apiTables]);
   const openBills = (billsQuery.data ?? []).filter((bill) => bill.status === "OPEN");
   const selectedBill = openBills.find((bill) => bill.id === selectedBillId) ?? null;
-  const selectedBillPaid = selectedBill?.payments?.reduce((sum, payment) => sum + Number(payment.amount), 0) ?? 0;
-  const selectedBillDue = selectedBill ? Math.max(Number(selectedBill.totalAmount) - selectedBillPaid, 0) : 0;
-  const pendingOrderPaid = pendingOrderQuery.data?.payments?.filter((payment) => payment.status === "COMPLETED").reduce((sum, payment) => sum + Number(payment.amount), 0) ?? 0;
-  const pendingOrderDue = pendingOrderQuery.data ? Math.max(Number(pendingOrderQuery.data.totalAmount) - pendingOrderPaid, 0) : 0;
+  const selectedBillPaid = settledTotal(selectedBill?.payments);
+  const selectedBillDue = selectedBill ? balanceDue(selectedBill.totalAmount, selectedBillPaid) : 0;
+  const pendingOrderPaid = settledTotal(pendingOrderQuery.data?.payments);
+  const pendingOrderDue = pendingOrderQuery.data ? balanceDue(pendingOrderQuery.data.totalAmount, pendingOrderPaid) : 0;
 
   useEffect(() => { setSelectedBillId(initialBillId); }, [initialBillId]);
 
@@ -104,57 +109,62 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
   });
 
   const checkoutMutation = useMutation({
-    mutationFn: async () => {
+    onMutate: () => setCheckoutSummary(null),
+    mutationFn: async (): Promise<CheckoutSummary> => {
       const cashAmount = Number(amountReceived) || 0;
       const onlineAmount = Number(onlineAmountReceived) || 0;
       const enteredPayments = paymentMethod === "Split"
         ? [
-            { method: "CASH" as PaymentMethod, amount: cashAmount },
-            { method: toPaymentMethod(onlinePaymentMethod), amount: onlineAmount, referenceNumber: reference },
-          ].filter((part) => part.amount > 0)
-        : [{ method: toPaymentMethod(paymentMethod), amount: cashAmount, referenceNumber: paymentMethod === "Cash" ? undefined : reference }];
-      const paymentTotal = enteredPayments.reduce((sum, part) => sum + part.amount, 0);
+            { method: "CASH" as PaymentMethod, amount: roundMoney(cashAmount) },
+            { method: toPaymentMethod(onlinePaymentMethod), amount: roundMoney(onlineAmount), referenceNumber: reference },
+          ]
+        : [{ method: toPaymentMethod(paymentMethod), amount: roundMoney(cashAmount), referenceNumber: paymentMethod === "Cash" ? undefined : reference }];
+      const tenderedPayments = enteredPayments.filter((part) => part.amount > 0);
+      const tendered = roundMoney(tenderedPayments.reduce((sum, part) => sum + part.amount, 0));
+      if (tendered <= 0) throw new Error("Enter the amount the customer is paying now, or send the order to the kitchen first.");
+
+      // Any part of the tender above the balance is overpayment (change); the
+      // remainder below the balance is deliberately left as a due.
       if (selectedBill) {
-        if (paymentTotal < selectedBillDue) throw new Error(`Payment is short by NPR ${selectedBillDue - paymentTotal}`);
-        let remainingPayment = selectedBillDue;
-        const tenderParts = enteredPayments.map((part) => ({ ...part, amount: Math.min(part.amount, selectedBillDue) }));
+        if (selectedBillDue <= 0) throw new Error("This bill has no outstanding balance.");
+        const applied = roundMoney(Math.min(tendered, selectedBillDue));
+        let remainingPayment = applied;
+        const tenderParts = tenderedPayments.map((part) => ({ ...part, amount: Math.min(part.amount, applied) }));
         const billOrders = selectedBill.orders ?? await Promise.all((selectedBill.orderIds ?? []).map((id) => api.order(id)));
         if (!billOrders.length) throw new Error("This bill has no payable orders. Refresh the bills list and try again.");
         for (const billOrder of billOrders) {
-          const paidOnOrder = (billOrder.payments ?? []).reduce((sum, payment) => sum + Number(payment.amount), 0);
-          let orderDue = Math.max(Number(billOrder.totalAmount) - paidOnOrder, 0);
-          if (!orderDue) continue;
+          let orderDue = balanceDue(billOrder.totalAmount, settledTotal(billOrder.payments));
+          if (orderDue <= 0 || remainingPayment <= 0) continue;
           const allocation: typeof tenderParts = [];
           for (const part of tenderParts) {
-            const amount = Math.min(part.amount, orderDue, remainingPayment);
+            const amount = roundMoney(Math.min(part.amount, orderDue, remainingPayment));
             if (amount > 0) allocation.push({ ...part, amount });
-            orderDue -= amount;
-            remainingPayment -= amount;
-            part.amount -= amount;
-            if (!orderDue || !remainingPayment) break;
+            orderDue = roundMoney(orderDue - amount);
+            remainingPayment = roundMoney(remainingPayment - amount);
+            part.amount = roundMoney(part.amount - amount);
+            if (orderDue <= 0 || remainingPayment <= 0) break;
           }
           if (allocation.length === 1) await api.createPayment(billOrder.id, allocation[0]);
           else if (allocation.length > 1) await api.createSplitPayment(billOrder.id, allocation);
         }
-        return selectedBill.id;
+        return { target: selectedBill.id, paid: applied, due: roundMoney(selectedBillDue - applied) };
       }
       const order = orderId ? await api.order(orderId) : await api.createOrder({ orderType: "DINE_IN", tableId: apiTables.find((entry) => entry.tableNumber === table)?.id, items: items.map((item) => ({ menuItemId: item.id, quantity: item.quantity, notes: item.note })) });
-      const alreadyPaid = (order.payments ?? []).filter((payment) => payment.status === "COMPLETED").reduce((sum, payment) => sum + Number(payment.amount), 0);
-      const balanceDue = Math.max(Number(order.totalAmount) - alreadyPaid, 0);
-      const paid = paymentTotal;
-      if (paid < balanceDue) throw new Error(`Payment is short by NPR ${balanceDue - paid}`);
-      let paymentBalance = balanceDue;
-      const payments = enteredPayments.map((part) => {
-        const amount = Math.min(part.amount, paymentBalance);
-        paymentBalance -= amount;
+      const balance = balanceDue(order.totalAmount, settledTotal(order.payments));
+      if (balance <= 0) throw new Error("This order is already fully paid.");
+      const applied = roundMoney(Math.min(tendered, balance));
+      let paymentBalance = applied;
+      const payments = tenderedPayments.map((part) => {
+        const amount = roundMoney(Math.min(part.amount, paymentBalance));
+        paymentBalance = roundMoney(paymentBalance - amount);
         return { ...part, amount };
       }).filter((part) => part.amount > 0);
       if (paymentMethod === "Split") await api.createSplitPayment(order.id, payments);
       else await api.createPayment(order.id, payments[0]);
       // The bill branch above already returned, so only a fresh order reaches here.
-      return order.id;
+      return { target: order.id, paid: applied, due: roundMoney(balance - applied) };
     },
-    onSuccess: (completedOrderId) => {
+    onSuccess: (result) => {
       clear();
       setOrderId(null);
       setAmountReceived("");
@@ -163,7 +173,11 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
       void queryClient.invalidateQueries({ queryKey: ["bills"] });
       void queryClient.invalidateQueries({ queryKey: ["tables"] });
       void queryClient.invalidateQueries({ queryKey: ["orders"] });
-      router.push(cashier ? `/cashier/bills/${encodeURIComponent(completedOrderId)}` : `/receipt/${completedOrderId}`);
+      const billHref = cashier ? `/cashier/bills/${encodeURIComponent(result.target)}` : `/receipt/${result.target}`;
+      // A part payment stays on the POS so the cashier can see exactly how much
+      // landed in the due ledger before moving on.
+      if (result.due > 0) setCheckoutSummary(result);
+      else router.push(billHref);
     },
   });
 
@@ -205,6 +219,18 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
           <span>{pendingOrderQuery.data.orderNumber} · {table} · {items.reduce((count, item) => count + item.quantity, 0)} items</span>
         </div>
       )}
+      {checkoutSummary && <div className="checkout-summary-banner" role="status">
+        <span>
+          <strong>NPR {checkoutSummary.paid.toLocaleString()} received</strong>
+          {checkoutSummary.due > 0 ? ` · NPR ${checkoutSummary.due.toLocaleString()} recorded as due` : " · settled in full"}
+        </span>
+        <span className="checkout-summary-actions">
+          {checkoutSummary.due > 0 && <Link className="btn secondary" href={cashier ? "/cashier/due-payments" : "/due-payments"}>Open due payments</Link>}
+          <Link className="btn secondary" href={cashier ? `/cashier/bills/${encodeURIComponent(checkoutSummary.target)}` : `/receipt/${checkoutSummary.target}`}>View bill</Link>
+          <button className="btn" onClick={() => setCheckoutSummary(null)} type="button">Done</button>
+        </span>
+      </div>}
+
       <h1 className="page-title">{cashier ? "Cashier POS" : "Point of sale"}</h1>
       <p className="muted">{cashier ? "Open waiter bills, add customer requests, and print the updated bill." : "Create an order, send its KOT to the kitchen, or complete checkout without leaving the POS."}</p>
 

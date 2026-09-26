@@ -117,6 +117,24 @@ ports: `docker compose down`.
 - The cashier Bills page is the bill history. Open bills link back to POS; printing is done from POS.
 - The backend records bills and orders in MySQL. Open table orders share one bill until settled.
 
+## Part payments and dues
+
+A customer can pay less than the balance at checkout. POS records whatever is
+tendered as a payment and leaves the remainder outstanding, so a NPR 120 bill
+settled with NPR 100 stores one NPR 100 payment and a NPR 20 due.
+
+- Enter less than the balance and the checkout panel previews the split between
+  "Receiving now" and "Left as due" before anything is saved.
+- Partial checkout keeps the POS open and shows a confirmation with the paid and
+  due amounts; full payment still redirects to the bill.
+- The order moves to `PARTIALLY_PAID` and the bill stays `OPEN`, so the table is
+  not released and inventory is not deducted until the balance reaches zero.
+- Outstanding balances are listed on the Due Payments page
+  (`/cashier/due-payments`, `/due-payments`), where a settlement can be recorded
+  in full or in part. A bill with several orders is settled order by order.
+- Dues are derived by summing completed payments; there is no stored due column,
+  and refunded payments stop counting towards the paid total.
+
 After pulling schema changes, apply pending migrations from `backend/`; run the seed again when role or permission definitions change:
 
 ```bash
@@ -127,6 +145,29 @@ npm run prisma:seed
 See [backend/prisma/migrations/README.md](backend/prisma/migrations/README.md) for the MySQL migration workflow and review guidance. The previous PostgreSQL migration history is archived under `backend/prisma/postgresql-legacy/`; changing Prisma's provider does not copy existing PostgreSQL data, so migrate production data separately after taking a backup.
 
 MySQL has no PostgreSQL-style row-level security. The application continues to scope database operations by tenant, and the archived `rls.sql` must not be run against MySQL.
+
+## Cafe setup and settings
+
+`GET /settings` and `PATCH /settings` upsert the tenant's `RestaurantSettings`
+row, defaulting `businessName` to the tenant name. A tenant therefore always has
+settings, even when it was not created by `scripts/seed-admin.ts`. Previously the
+row was assumed to exist, so such a tenant got a `404` on load and could not
+save, because the matching `update` had no row to update.
+
+`PATCH /settings` validates its body against
+`backend/src/settings/dto/update-settings.dto.ts`. Note that the DTO must stay a
+concrete class: typing the body as `Partial<SettingsDto>` erases the emitted
+design-time type to `Object`, and `ValidationPipe` skips `Object`. That silently
+disabled `whitelist`, `forbidNonWhitelisted`, and every constraint, so malformed
+input reached Prisma and surfaced as a bare `500 Internal server error`. Several
+other controllers still use the `Partial<XDto>` form and carry the same latent
+risk.
+
+Cafe setup also records an optional `taxNumber` (VAT/PAN registration number,
+`VARCHAR(50)`), matching the existing `Supplier.taxNumber` field. It prints as a
+`VAT/PAN:` line in the receipt header when present and is omitted everywhere when
+blank. This is separate from the `taxEnabled`/`taxRate` VAT-rate columns, which
+are not yet exposed in any form.
 
 ## Project structure
 

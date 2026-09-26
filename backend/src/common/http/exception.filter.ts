@@ -14,6 +14,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       if (exception.code === 'P2002') status = HttpStatus.CONFLICT;
       if (exception.code === 'P2003') status = HttpStatus.BAD_REQUEST;
       if (exception.code === 'P2025') status = HttpStatus.NOT_FOUND;
+      if (exception.code === 'P2000') status = HttpStatus.BAD_REQUEST;
       this.logger.error(`Database request failed (${exception.code}): ${exception.message}`, exception.stack);
     } else if (exception instanceof InvalidTransitionError) {
       this.logger.warn(exception.message);
@@ -25,7 +26,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const payload =
       exception instanceof HttpException
         ? exception.getResponse()
-        : { message: 'Internal server error' };
+        : exception instanceof Prisma.PrismaClientKnownRequestError
+          ? { message: this.prismaMessage(exception.code) }
+          : { message: 'Internal server error' };
     const message =
       typeof payload === 'string'
         ? payload
@@ -38,6 +41,22 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         ? 'This record conflicts with existing data.'
         : message;
     response.status(status).json({ success: false, error: { code: this.code(status), message: userMessage } });
+  }
+
+  /**
+   * Turns a Prisma error code into an actionable message. The raw Prisma text
+   * is deliberately not forwarded: it can name columns and constraints, and a
+   * bare "Internal server error" on a 404 is actively misleading.
+   */
+  private prismaMessage(code: string): string {
+    return (
+      {
+        P2000: 'One of the values is longer than the field allows.',
+        P2002: 'This record conflicts with existing data.',
+        P2003: 'A related record is missing.',
+        P2025: 'The requested record was not found.',
+      } as Record<string, string>
+    )[code] ?? 'The database could not complete this request.';
   }
 
   private code(status: number): string {
