@@ -15,10 +15,11 @@ npm install
 npx prisma validate
 npx prisma generate
 npx prisma migrate deploy
+# Optional: re-apply the TypeScript seed for local role/permission updates
 npm run prisma:seed
 ```
 
-`DATABASE_URL` is used by the application. `DIRECT_DATABASE_URL` is used by Prisma for migrations; both must use `mysql://` URLs.
+`DATABASE_URL` is used by the application. `DIRECT_DATABASE_URL` is used by Prisma for migrations; both must use `mysql://` URLs. The active MySQL migrations include the initial roles, permissions, and grants, so a fresh database does not require a separate seed step.
 
 ## Development and production
 

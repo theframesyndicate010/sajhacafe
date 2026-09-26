@@ -1,5 +1,0 @@
--- PostgreSQL-only row-level security reference.
---
--- The original script is archived at postgresql-legacy/rls.sql. MySQL does not
--- provide PostgreSQL-style row-level security, so this file is intentionally
--- empty and must not be applied to the active MySQL database.

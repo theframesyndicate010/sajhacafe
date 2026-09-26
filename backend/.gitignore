@@ -7,3 +7,5 @@ coverage/
 .prettierrc
 test
 !test/
+seed.ts
+seed-user.sql

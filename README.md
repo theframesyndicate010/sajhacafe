@@ -22,7 +22,7 @@ Configure the backend:
 cp backend/.env.example backend/.env
 ```
 
-Set `DATABASE_URL` to the MySQL runtime connection string and `DIRECT_DATABASE_URL` to the direct connection used for migrations. Both values use the `mysql://` scheme; replace any existing PostgreSQL/Supabase URLs in the ignored `backend/.env` file. The database must be reachable before the API starts. Apply the MySQL baseline, generate the Prisma client, and seed the roles/permissions:
+Set `DATABASE_URL` to the MySQL runtime connection string and `DIRECT_DATABASE_URL` to the direct connection used for migrations. Both values use the `mysql://` scheme; replace any existing PostgreSQL/Supabase URLs in the ignored `backend/.env` file. The database must be reachable before the API starts. Apply the MySQL baseline and bootstrap role/permission migration, then generate the Prisma client. The TypeScript seed is optional for a fresh database and can be rerun for local role/permission updates:
 
 ```bash
 cd backend
