@@ -113,6 +113,7 @@ export class BillsService {
       updatedAt: bill.updatedAt,
       tableId: bill.tableId,
       table: bill.table,
+      tableNumber: bill.table?.tableNumber ?? null,
       orderNumber: bill.orders.map((order) => order.orderNumber).sort((a, b) => a < b ? -1 : 1)[0]?.toString() ?? bill.billNumber.toString(),
       orderCount: bill.orders.length,
       orderIds: bill.orders.map((order) => order.id),

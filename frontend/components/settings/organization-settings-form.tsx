@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type RestaurantSettings } from "@/lib/api/client";
+import { PrinterSettings } from "@/components/settings/printer-settings";
 
 /** Mirrors the `businessName` column width and the API's MaxLength check. */
 const BUSINESS_NAME_MAX = 150;
@@ -101,6 +102,7 @@ export function OrganizationSettingsForm() {
         {mutation.error && <p className="error" role="alert">{mutation.error instanceof Error ? mutation.error.message : "Unable to save cafe settings."}</p>}
         <button className="btn" disabled={query.isLoading || mutation.isPending} type="submit">{mutation.isPending ? "Saving…" : "Save cafe setup"}</button>
       </form>
+      <PrinterSettings />
     </section>
   );
 }

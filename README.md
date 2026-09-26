@@ -118,7 +118,7 @@ ports: `docker compose down`.
 
 ## Cashier and waiter bills
 
-- Waiters create orders and can view bills. Waiters do not have bill-print permission.
+- Waiters create orders, view and print bills, and close tables. Payment settlement remains a cashier task.
 - Cashier POS lists open bills and refreshes the list every five seconds.
 - Select an open bill in POS to see its current items, add configured menu items, send those additions to the kitchen, and print the updated combined bill.
 - The cashier Bills page is the bill history. Open bills link back to POS; printing is done from POS.
