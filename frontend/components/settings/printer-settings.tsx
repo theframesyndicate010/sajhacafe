@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { hasAndroidPrintBridge, listAndroidPrinters } from "@/lib/printing/android-bridge";
-import { readPrinterConfig, savePrinterConfig } from "@/lib/printing/config";
+import { isAndroidBrowser, readPrinterConfig, savePrinterConfig } from "@/lib/printing/config";
 import { printerManager, type PrinterStatus } from "@/lib/printing/printer-manager";
 import { bridgeStatus } from "@/lib/printing/bridge-client";
 import { DEFAULT_PRINTER_CONFIG, type PrinterConfig } from "@/lib/printing/types";
@@ -22,7 +22,9 @@ export function PrinterSettings() {
   useEffect(() => {
     const saved = readPrinterConfig();
     const native = hasAndroidPrintBridge();
-    const initial = native && saved.connection !== "BROWSER" ? { ...saved, connection: "BLUETOOTH" as const } : saved;
+    const androidPwa = isAndroidBrowser() && !native;
+    const preferredConnection: PrinterConfig["connection"] = native ? "BLUETOOTH" : androidPwa ? ("serial" in navigator ? "WEB_SERIAL" : "BROWSER") : saved.connection;
+    const initial = native && saved.connection !== "BROWSER" ? { ...saved, connection: "BLUETOOTH" as const } : androidPwa && ["LOCAL_USB", "BLUETOOTH", "NETWORK"].includes(saved.connection) ? { ...saved, connection: preferredConnection, endpoint: "", token: "" } : androidPwa && saved.connection === "USB" ? { ...saved, endpoint: "", token: "" } : { ...saved, connection: preferredConnection };
     setConfig(initial);
     setAndroidMode(native);
     if (native) void listAndroidPrinters().then(setPairedPrinters).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Unable to read paired Android printers."));

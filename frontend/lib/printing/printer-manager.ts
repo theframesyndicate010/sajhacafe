@@ -1,11 +1,18 @@
 import { androidPrinterStatus, connectAndroidPrinter, disconnectAndroidPrinter, hasAndroidPrintBridge, selectAndroidPrinter } from "./android-bridge";
 import { browserPrintAdapter } from "./browser-print";
 import { connectPrintBridge, testThermalPrinter, thermalPrint } from "./bridge-client";
+import { isAndroidBrowser } from "./config";
 import { connectWebBluetooth, connectWebSerialBluetooth, connectWebUsb, disconnectWebBluetooth, disconnectWebSerialBluetooth, disconnectWebUsb, isWebBluetoothConnected, isWebSerialBluetoothConnected, isWebUsbConnected } from "./web-printer";
 import { sampleReceipt, testReceipt } from "./sample-receipts";
 import type { PrinterConfig, ReceiptData } from "./types";
 
 export type PrinterStatus = "not-connected" | "connecting" | "connected" | "printing" | "ready" | "error";
+
+function forbidLocalBridgeOnAndroid(config: PrinterConfig) {
+  if (isAndroidBrowser() && !hasAndroidPrintBridge() && ["LOCAL_USB", "BLUETOOTH", "NETWORK"].includes(config.connection)) {
+    throw new Error("This Android PWA cannot use the desktop localhost print bridge. Use Bluetooth Classic · Web Serial SPP, the Sajha Android app, or System Print.");
+  }
+}
 
 /** Keeps POS components independent of the hardware/browser transport. */
 export class PrinterManager {
@@ -13,6 +20,11 @@ export class PrinterManager {
     if (config.connection === "BROWSER") {
       if (!browserPrintAdapter.isAvailable()) throw new Error("System Print is unavailable in this browser/device.");
       return { status: "not-connected", message: "System Print is available. It opens the browser/OS print dialog; it does not keep a thermal-printer connection open." };
+    }
+    if (isAndroidBrowser() && !hasAndroidPrintBridge()) {
+      if (["LOCAL_USB", "BLUETOOTH", "NETWORK"].includes(config.connection)) {
+        throw new Error("Android browsers cannot reach a desktop localhost print bridge. Use Web Serial SPP or System Print instead.");
+      }
     }
     let selected: { id: string; name: string } | undefined;
     if (config.connection === "USB") selected = await connectWebUsb();
@@ -26,6 +38,7 @@ export class PrinterManager {
       await selectAndroidPrinter(config.id);
       await connectAndroidPrinter(config.id);
     } else {
+      forbidLocalBridgeOnAndroid(config);
       const result = await connectPrintBridge(config);
       return { status: "ready", message: result.message };
     }
