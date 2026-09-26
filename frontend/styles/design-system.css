@@ -110,6 +110,10 @@ textarea:focus-visible {
   color: #fff;
 }
 
+.sidebar-brand .nav-text {
+  color: #fff;
+}
+
 .brand-box {
   background: #fff;
   border-radius: 4px;

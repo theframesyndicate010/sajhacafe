@@ -6,8 +6,10 @@ const billSelect = {
   id: true,
   billNumber: true,
   status: true,
+  customerName: true,
   printedAt: true,
   closedAt: true,
+  tableClosedAt: true,
   createdAt: true,
   updatedAt: true,
   tableId: true,
@@ -60,18 +62,34 @@ export class BillsService {
     return this.get(bill.id, tenantId);
   }
 
+  async updateCustomerName(id: string, customerName: string, tenantId: string) {
+    const bill = await this.prisma.bill.findFirst({
+      where: { tenantId, OR: [{ id }, { orders: { some: { id } } }] },
+      select: { id: true, status: true },
+    });
+    if (!bill) throw new NotFoundException('Bill not found');
+    if (bill.status !== 'OPEN') throw new BadRequestException('A settled bill cannot be changed');
+    await this.prisma.bill.updateMany({
+      where: { id: bill.id, tenantId, status: 'OPEN' },
+      data: { customerName: customerName.trim() || null, printedAt: null },
+    });
+    return this.get(bill.id, tenantId);
+  }
+
   async close(id: string, tenantId: string) {
     const billId = await this.prisma.$transaction(async (tx) => {
       // Accept an order id too, like get() and markPrinted(), so a receipt
       // opened from an order can be closed without resolving the bill first.
-      const bill = await tx.bill.findFirst({ where: { tenantId, OR: [{ id }, { orders: { some: { id } } }] }, select: { id: true, tableId: true, status: true } });
+      const bill = await tx.bill.findFirst({ where: { tenantId, OR: [{ id }, { orders: { some: { id } } }] }, select: { id: true, tableId: true, status: true, tableClosedAt: true } });
       if (!bill) throw new NotFoundException('Bill not found');
       if (bill.tableId) {
         // Match order creation's table lock so a new customer gets a fresh bill.
         await tx.$queryRaw(Prisma.sql`SELECT id FROM RestaurantTable WHERE id = ${bill.tableId} AND tenantId = ${tenantId} FOR UPDATE`);
       }
-      if (bill.status === 'OPEN') {
-        await tx.bill.updateMany({ where: { id: bill.id, tenantId, status: 'OPEN' }, data: { status: 'CLOSED', closedAt: new Date() } });
+      if (bill.status === 'OPEN' && !bill.tableClosedAt) {
+        // A waiter ending service releases the table. Keep the bill OPEN so
+        // the cashier can still settle it later, independent of new guests.
+        await tx.bill.updateMany({ where: { id: bill.id, tenantId, status: 'OPEN', tableClosedAt: null }, data: { tableClosedAt: new Date() } });
         if (bill.tableId) await tx.restaurantTable.updateMany({ where: { id: bill.tableId, tenantId, status: 'OCCUPIED' }, data: { status: 'AVAILABLE' } });
       }
       return bill.id;
@@ -90,6 +108,7 @@ export class BillsService {
       status: bill.status,
       printedAt: bill.printedAt,
       closedAt: bill.closedAt,
+      tableClosedAt: bill.tableClosedAt,
       createdAt: bill.createdAt,
       updatedAt: bill.updatedAt,
       tableId: bill.tableId,
@@ -108,7 +127,7 @@ export class BillsService {
       discountAmount: total('discountAmount'),
       taxAmount: total('taxAmount'),
       totalAmount,
-      customer: bill.orders.map((order) => order.customer).find(Boolean) ?? null,
+      customer: bill.customerName ? { name: bill.customerName } : bill.orders.map((order) => order.customer).find(Boolean) ?? null,
       items: bill.orders.flatMap((order) => order.items),
       payments,
     };

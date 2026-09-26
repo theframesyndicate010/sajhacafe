@@ -30,6 +30,7 @@ type CurrentOrderProps = {
   onAmountReceivedChange: (value: string) => void;
   onCheckout: () => void;
   onCustomerChange: (value: string) => void;
+  onCustomerBlur?: () => void;
   onManualNameChange: (value: string) => void;
   onManualPriceChange: (value: string) => void;
   onPaymentMethodChange: (value: string) => void;
@@ -67,6 +68,7 @@ export function CurrentOrder({
   onAmountReceivedChange,
   onCheckout,
   onCustomerChange,
+  onCustomerBlur,
   onManualNameChange,
   onManualPriceChange,
   onPaymentMethodChange,
@@ -97,6 +99,17 @@ export function CurrentOrder({
       <h2 style={{ marginTop: 0 }}>{cashierBill ? `Bill #${cashierBill.billNumber}` : "Current order"}</h2>
 
       {cashierBill && <div className="cashier-selected-bill"><span>{cashierBill.table?.tableNumber ?? "Takeaway"} · {cashierBill.orderCount} order{cashierBill.orderCount === 1 ? "" : "s"}</span><strong>Current total · NPR {Number(cashierBill.totalAmount).toLocaleString()}</strong><strong>Balance due · NPR {billDue.toLocaleString()}</strong></div>}
+
+      {cashierBill && <label className="field">
+        Customer name
+        <input
+          autoComplete="name"
+          onBlur={onCustomerBlur}
+          onChange={(event) => onCustomerChange(event.target.value)}
+          placeholder="Walk-in customer"
+          value={customer}
+        />
+      </label>}
 
       {!cashierBill && <div className="order-details">
         <label className="field">

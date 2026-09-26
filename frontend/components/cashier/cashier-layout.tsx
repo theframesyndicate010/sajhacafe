@@ -21,11 +21,9 @@ export function CashierLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [cashierName, setCashierName] = useState("Cashier");
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [cafeName, setCafeName] = useState("");
   const { user, isLoading: authLoading, error: authError, logout } = useAuth();
   const settings = useQuery({ queryKey: ["settings"], queryFn: api.settings.get, enabled: Boolean(user) });
-
-  useEffect(() => { if (user) setCafeName(user.tenant.name); }, [user]);
+  const cafeName = settings.data?.businessName ?? user?.tenant.name ?? "";
 
   useEffect(() => { if (!authLoading && (authError || !user || user.role.toUpperCase() !== "CASHIER")) router.replace("/login"); else if (user) setCashierName(user.name); }, [authError, authLoading, router, user]);
 
@@ -39,7 +37,7 @@ export function CashierLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className={`cashier-shell ${sidebarExpanded ? "sidebar-expanded" : "sidebar-collapsed"}`}>
       <aside className={`cashier-sidebar ${sidebarExpanded ? "expanded" : "collapsed"}`} id="cashier-sidebar">
-        <div className="cashier-brand">{settings.data?.logo && <img alt={`${cafeName} logo`} height={40} src={settings.data.logo} width={40} />}{cafeName}<small>CASHIER</small></div>
+        <div className="cashier-brand">{settings.data?.logo && <img key={settings.data.logo} alt={`${cafeName} logo`} height={40} src={settings.data.logo} width={40} />}{cafeName}<small>CASHIER</small></div>
         <nav aria-label="Cashier navigation">
           {items.map(({ href, label, Icon }) => (
             <Link aria-current={pathname === href ? "page" : undefined} className={pathname === href ? "active" : ""} href={href} key={href}>

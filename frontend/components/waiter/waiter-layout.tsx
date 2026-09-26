@@ -28,16 +28,14 @@ export function WaiterLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [waiterName, setWaiterName] = useState("Waiter");
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [cafeName, setCafeName] = useState("");
   const { user, isLoading: authLoading, error: authError, logout } = useAuth();
   const settings = useQuery({ queryKey: ["settings"], queryFn: api.settings.get, enabled: Boolean(user) });
+  const cafeName = settings.data?.businessName ?? user?.tenant.name ?? "";
 
   useEffect(() => {
     if (!authLoading && (authError || !user || user.role.toUpperCase() !== "WAITER")) router.replace("/login");
     else if (user) setWaiterName(user.name);
   }, [authError, authLoading, router, user]);
-
-  useEffect(() => { if (user) setCafeName(user.tenant.name); }, [user]);
 
   function logOut() {
     void logout();
@@ -50,7 +48,7 @@ export function WaiterLayout({ children }: { children: React.ReactNode }) {
     <div className={`waiter-shell ${sidebarExpanded ? "sidebar-expanded" : "sidebar-collapsed"}`}>
       <aside className={`waiter-sidebar ${sidebarExpanded ? "expanded" : "collapsed"}`} id="waiter-sidebar">
         <div className="waiter-brand">
-          {settings.data?.logo && <img alt={`${cafeName} logo`} height={40} src={settings.data.logo} width={40} />}
+          {settings.data?.logo && <img key={settings.data.logo} alt={`${cafeName} logo`} height={40} src={settings.data.logo} width={40} />}
           {cafeName}
           <small>WAITER</small>
         </div>

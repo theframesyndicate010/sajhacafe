@@ -10,13 +10,25 @@ import { balanceDue, roundMoney } from "@/lib/money";
 export function DuePayments() {
   const pathname = usePathname();
   const queryClient = useQueryClient();
-  const query = useQuery({ queryKey: ["orders"], queryFn: () => api.orders(), refetchInterval: 15000, refetchOnWindowFocus: true });
+  const query = useQuery({ queryKey: ["bills"], queryFn: () => api.bills(), refetchInterval: 15000, refetchOnWindowFocus: true });
   const [activeId, setActiveId] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [search, setSearch] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const mutation = useMutation({
-    mutationFn: ({ id, amount }: { id: string; amount: number }) => api.createPayment(id, { method: "CASH", amount }),
+    mutationFn: async ({ bill, amount }: { bill: NonNullable<typeof query.data>[number]; amount: number }) => {
+      let remaining = amount;
+      for (const order of bill.orders ?? []) {
+        const paid = (order.payments ?? []).reduce((sum, payment) => sum + Number(payment.amount), 0);
+        const due = balanceDue(order.totalAmount, paid);
+        const paymentAmount = roundMoney(Math.min(remaining, due));
+        if (paymentAmount > 0) {
+          await api.createPayment(order.id, { method: "CASH", amount: paymentAmount });
+          remaining = roundMoney(remaining - paymentAmount);
+        }
+        if (remaining <= 0) break;
+      }
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["orders"] });
       void queryClient.invalidateQueries({ queryKey: ["bills"] });
@@ -28,17 +40,17 @@ export function DuePayments() {
   });
 
   const dues = (query.data ?? [])
-    .map((order) => {
-      const total = Number(order.totalAmount);
-      const paid = (order.payments ?? [])
+    .map((bill) => {
+      const total = Number(bill.totalAmount);
+      const paid = (bill.payments ?? [])
         .filter((payment) => !payment.status || payment.status === "COMPLETED")
         .reduce((sum, payment) => sum + Number(payment.amount), 0);
-      return { order, total, paid, due: balanceDue(total, paid) };
+      return { bill, total, paid, due: balanceDue(total, paid) };
     })
-    .filter(({ order, total, due }) => order.status !== "CANCELLED" && due > 0 && `${order.orderNumber} ${order.table?.tableNumber ?? ""} ${order.customer?.name ?? ""}`.toLowerCase().includes(search.trim().toLowerCase()));
+    .filter(({ bill, due }) => due > 0 && `bill ${bill.billNumber} ${bill.table?.tableNumber ?? ""} ${bill.customer?.name ?? ""}`.toLowerCase().includes(search.trim().toLowerCase()));
   const totalDue = roundMoney(dues.reduce((sum, entry) => sum + entry.due, 0));
 
-  const settle = (orderId: string, maxDue: number) => {
+  const settle = (bill: NonNullable<typeof query.data>[number], maxDue: number) => {
     const value = roundMoney(Number(amount));
     if (!Number.isFinite(value) || value <= 0) {
       setFormError("Enter a settlement amount greater than zero.");
@@ -49,7 +61,7 @@ export function DuePayments() {
       return;
     }
     setFormError(null);
-    mutation.mutate({ id: orderId, amount: value });
+    mutation.mutate({ bill, amount: value });
   };
 
   return (
@@ -74,20 +86,22 @@ export function DuePayments() {
             <table className="table">
               <thead><tr><th>Bill</th><th>Customer</th><th>Table</th><th>Total</th><th>Paid</th><th>Due</th><th>Action</th></tr></thead>
               <tbody>
-                {dues.map(({ order, total, paid, due }) => {
-                  const billHref = pathname.startsWith("/cashier") ? `/cashier/pos?billId=${encodeURIComponent(order.billId ?? order.id)}` : `/receipt/${encodeURIComponent(order.id)}`;
-                  const isActive = activeId === order.id;
+                {dues.map(({ bill, total, paid, due }) => {
+                  const billHref = pathname.startsWith("/cashier") ? `/cashier/pos?billId=${encodeURIComponent(bill.id)}` : `/receipt/${encodeURIComponent(bill.id)}`;
+                  const isActive = activeId === bill.id;
                   return (
-                    <tr key={order.id}>
-                      <td><Link href={billHref}>#{order.orderNumber}</Link></td>
-                      <td>{order.customer?.name ?? "Walk-in customer"}</td>
-                      <td>{order.table?.tableNumber ?? "—"}</td>
+                    <tr key={bill.id}>
+                      <td><Link href={billHref}>Bill #{bill.billNumber} · {bill.orderCount} order{bill.orderCount === 1 ? "" : "s"}</Link></td>
+                      <td>{bill.customer?.name ?? "Walk-in customer"}</td>
+                      <td>{bill.table?.tableNumber ?? "—"}</td>
                       <td>NPR {total.toLocaleString()}</td>
                       <td>NPR {paid.toLocaleString()}</td>
                       <td><strong>NPR {due.toLocaleString()}</strong></td>
                       <td>
-                        {isActive ? (
-                          <form onSubmit={(event) => { event.preventDefault(); settle(order.id, due); }}>
+                        {pathname.startsWith("/cashier") ? (
+                          <Link className="btn secondary" href={billHref}>Settle in POS</Link>
+                        ) : isActive ? (
+                          <form onSubmit={(event) => { event.preventDefault(); settle(bill, due); }}>
                             <input
                               aria-label="Settlement amount"
                               max={due}
@@ -102,7 +116,7 @@ export function DuePayments() {
                             <button className="btn secondary" onClick={() => { setActiveId(null); setAmount(""); setFormError(null); }} type="button">Cancel</button>
                           </form>
                         ) : (
-                          <button className="btn secondary" onClick={() => { setActiveId(order.id); setAmount(String(due)); setFormError(null); mutation.reset(); }} type="button">Settle</button>
+                          <button className="btn secondary" onClick={() => { setActiveId(bill.id); setAmount(String(due)); setFormError(null); mutation.reset(); }} type="button">Settle</button>
                         )}
                       </td>
                     </tr>

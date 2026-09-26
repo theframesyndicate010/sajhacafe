@@ -56,7 +56,7 @@ export class OrdersService {
         // Serialize order submissions per table. This lets concurrent requests
         // reuse one open bill rather than racing to create two.
         await tx.$queryRaw(Prisma.sql`SELECT id FROM RestaurantTable WHERE id = ${tableId} AND tenantId = ${tenantId} FOR UPDATE`);
-        bill = await tx.bill.findFirst({ where: { tenantId, tableId, status: 'OPEN' } });
+        bill = await tx.bill.findFirst({ where: { tenantId, tableId, status: 'OPEN', tableClosedAt: null } });
       }
       if (!bill) bill = await tx.bill.create({ data: { tenantId, tableId, status: 'OPEN' } });
       else await tx.bill.update({ where: { id: bill.id }, data: { printedAt: null } });

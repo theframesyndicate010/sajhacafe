@@ -53,6 +53,19 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
 
   useEffect(() => { setSelectedBillId(initialBillId); }, [initialBillId]);
 
+  const loadedBillCustomerId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!cashier) return;
+    if (!selectedBill) {
+      loadedBillCustomerId.current = null;
+      return;
+    }
+    if (loadedBillCustomerId.current !== selectedBill.id) {
+      loadedBillCustomerId.current = selectedBill.id;
+      setCustomer(selectedBill.customer?.name ?? "");
+    }
+  }, [cashier, selectedBill?.customer?.name, selectedBill?.id, setCustomer]);
+
   useEffect(() => {
     if (!cashier || !selectedBill) return;
     if (table !== (selectedBill.table?.tableNumber ?? "")) setTable(selectedBill.table?.tableNumber ?? "");
@@ -108,6 +121,14 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
     },
   });
 
+  const billCustomerMutation = useMutation({
+    mutationFn: ({ billId, name }: { billId: string; name: string }) => api.updateBillCustomer(billId, name),
+    onSuccess: (bill) => {
+      queryClient.setQueryData(["bill", bill.id], bill);
+      void queryClient.invalidateQueries({ queryKey: ["bills"] });
+    },
+  });
+
   const checkoutMutation = useMutation({
     onMutate: () => setCheckoutSummary(null),
     mutationFn: async (): Promise<CheckoutSummary> => {
@@ -127,6 +148,7 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
       // remainder below the balance is deliberately left as a due.
       if (selectedBill) {
         if (selectedBillDue <= 0) throw new Error("This bill has no outstanding balance.");
+        await api.updateBillCustomer(selectedBill.id, customer);
         const applied = roundMoney(Math.min(tendered, selectedBillDue));
         let remainingPayment = applied;
         const tenderParts = tenderedPayments.map((part) => ({ ...part, amount: Math.min(part.amount, applied) }));
@@ -166,6 +188,7 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
     },
     onSuccess: (result) => {
       clear();
+      if (selectedBill) setCustomer(customer.trim());
       setOrderId(null);
       setAmountReceived("");
       setOnlineAmountReceived("");
@@ -201,7 +224,7 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
     setManualPrice("");
   };
 
-  const error = sendMutation.error || checkoutMutation.error || menuQuery.error || tablesQuery.error || pendingOrderQuery.error;
+  const error = sendMutation.error || checkoutMutation.error || billCustomerMutation.error || menuQuery.error || tablesQuery.error || pendingOrderQuery.error;
   const errorMessage = error instanceof Error ? error.message : undefined;
   const chooseBill = (id: string) => {
     clear();
@@ -278,6 +301,11 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
           onAmountReceivedChange={setAmountReceived}
           onCheckout={() => checkoutMutation.mutate()}
           onCustomerChange={setCustomer}
+          onCustomerBlur={() => {
+            if (selectedBill && customer.trim() !== (selectedBill.customer?.name ?? "")) {
+              billCustomerMutation.mutate({ billId: selectedBill.id, name: customer });
+            }
+          }}
           onManualNameChange={setManualName}
           onManualPriceChange={setManualPrice}
           onPaymentMethodChange={setPaymentMethod}

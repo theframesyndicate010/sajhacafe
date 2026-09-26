@@ -144,7 +144,10 @@ export class PaymentsService {
         );
         if (bill && isBillSettled) {
           await tx.bill.updateMany({ where: { id: bill.id, tenantId, status: 'OPEN' }, data: { status: 'CLOSED', closedAt: new Date() } });
-          if (bill.tableId) await tx.restaurantTable.updateMany({ where: { id: bill.tableId, tenantId, status: 'OCCUPIED' }, data: { status: 'AVAILABLE' } });
+          if (bill.tableId) {
+            const activeBill = await tx.bill.findFirst({ where: { tenantId, tableId: bill.tableId, status: 'OPEN', tableClosedAt: null }, select: { id: true } });
+            if (!activeBill) await tx.restaurantTable.updateMany({ where: { id: bill.tableId, tenantId, status: 'OCCUPIED' }, data: { status: 'AVAILABLE' } });
+          }
         }
       }
 

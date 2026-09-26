@@ -1,7 +1,8 @@
 {
-  "name": "Sajha Karobar System",
-  "short_name": "Sajha Karobar",
-  "description": "Business operations dashboard for billing, stock, sales, and reports.",
+  "id": "/",
+  "name": "Sajha Cafe",
+  "short_name": "Sajha Cafe",
+  "description": "Cafe point of sale, orders, bills, and business management.",
   "lang": "en",
   "start_url": "/",
   "scope": "/",
@@ -9,6 +10,7 @@
   "orientation": "any",
   "background_color": "#f3f6fb",
   "theme_color": "#1a3a8f",
+  "categories": ["business", "food", "productivity"],
   "icons": [
     {
       "src": "/icon-192.png",
@@ -17,10 +19,20 @@
       "purpose": "any"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/pwa-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     }
+  ],
+  "shortcuts": [
+    { "name": "Point of sale", "short_name": "POS", "url": "/cashier/pos", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Orders", "short_name": "Orders", "url": "/waiter", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
   ]
 }

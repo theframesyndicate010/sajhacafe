@@ -310,8 +310,10 @@ model Bill {
   tableId    String?          @db.Char(36)
   billNumber BigInt           @unique @default(autoincrement())
   status     BillStatus       @default(OPEN)
+  customerName String?        @db.VarChar(150)
   printedAt  DateTime?
   closedAt   DateTime?
+  tableClosedAt DateTime?
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
   tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)

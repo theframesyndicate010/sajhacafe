@@ -51,9 +51,9 @@ export default function CafeLayout({ children }: { children: React.ReactNode }) 
   const [expanded, setExpanded] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isDrawerViewport, setIsDrawerViewport] = useState(false);
-  const [cafeName, setCafeName] = useState("");
   const { user, isLoading: authLoading, error: authError, logout, switchTenant } = useAuth();
   const settings = useQuery({ queryKey: ["settings"], queryFn: api.settings.get, enabled: Boolean(user) });
+  const cafeName = settings.data?.businessName ?? user?.tenant.name ?? "";
 
   useEffect(() => {
     if (!authLoading && (authError || !user)) router.replace("/login");
@@ -92,8 +92,6 @@ export default function CafeLayout({ children }: { children: React.ReactNode }) 
 
   useEffect(() => setMobileOpen(false), [pathname]);
 
-  useEffect(() => { if (user) setCafeName(user.tenant.name); }, [user]);
-
   if (authLoading || !user) return <main className="login"><p className="muted">Checking your session…</p></main>;
 
   return (
@@ -110,7 +108,7 @@ export default function CafeLayout({ children }: { children: React.ReactNode }) 
       <aside className={`sidebar ${expanded ? "expanded" : ""} ${mobileOpen ? "mobile-open" : ""}`} id="cafe-sidebar">
         <div className="sidebar-brand">
           <div className="brand-box">
-            {settings.data?.logo ? <img alt={`${cafeName} logo`} height={42} src={settings.data.logo} width={42} /> : <Image alt={cafeName} height={42} priority src="/logo.png" width={42} />}
+            {settings.data?.logo ? <img key={settings.data.logo} alt={`${cafeName} logo`} height={42} src={settings.data.logo} width={42} /> : <Image alt={cafeName} height={42} priority src="/logo.png" width={42} />}
           </div>
           <h4 className="nav-text">{cafeName}</h4>
         </div>
@@ -167,7 +165,7 @@ export default function CafeLayout({ children }: { children: React.ReactNode }) 
               <select aria-label="Active cafe" value={user.tenant.id} onChange={(event) => void switchTenant(event.target.value)}>
                 {user.memberships.map((membership) => <option key={membership.tenant.id} value={membership.tenant.id}>{membership.tenant.name}</option>)}
               </select>
-            ) : <span className="invoice-meta">{user.tenant.name || cafeName}</span>}
+            ) : <span className="invoice-meta">{cafeName}</span>}
           </div>
         </header>
 

@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, ParseEnumPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { BillStatus } from '@prisma/client';
-import { IsDateString } from 'class-validator';
+import { IsDateString, IsString, MaxLength } from 'class-validator';
 import { Request } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
 import { PermissionGuard } from '../permissions/permission.guard';
@@ -9,6 +9,10 @@ import { BillsService } from './bills.service';
 
 class PrintedBillDto {
   @IsDateString() updatedAt!: string;
+}
+
+class BillCustomerDto {
+  @IsString() @MaxLength(150) customerName!: string;
 }
 
 @Controller('bills')
@@ -32,6 +36,12 @@ export class BillsController {
   @RequirePermission('bills.print')
   markPrinted(@Param('id') id: string, @Body() dto: PrintedBillDto, @Req() request: Request) {
     return this.bills.markPrinted(id, request.tenantId!, dto.updatedAt);
+  }
+
+  @Post(':id/customer')
+  @RequirePermission('payments.create')
+  updateCustomerName(@Param('id') id: string, @Body() dto: BillCustomerDto, @Req() request: Request) {
+    return this.bills.updateCustomerName(id, dto.customerName, request.tenantId!);
   }
 
   @Post(':id/close')

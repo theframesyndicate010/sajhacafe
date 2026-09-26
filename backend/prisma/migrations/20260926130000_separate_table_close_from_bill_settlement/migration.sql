@@ -1,0 +1,1 @@
+ALTER TABLE `Bill` ADD COLUMN `tableClosedAt` DATETIME(3) NULL;

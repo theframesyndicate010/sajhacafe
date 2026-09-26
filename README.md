@@ -54,6 +54,13 @@ cd frontend && npm run dev
 
 The health endpoint checks the database connection. The backend must remain running for login, POS, and bills to work.
 
+## Install Sajha Cafe and print bills
+
+- Serve the production site over HTTPS. Local development on `localhost` is also treated as secure by browsers.
+- Use the in-app **Install app** button where the browser supports a direct prompt. On iPhone or iPad, use the browser share menu and choose **Add to Home Screen**. Other browsers may expose **Install app** or **Add to Home Screen** from their menu; support varies by browser and operating system.
+- The service worker caches only the app shell, icons, and offline message. Orders, payments, and other cafe data always require a connection to the API.
+- Pair or add a printer in the device or operating-system printer settings, then select it in the browser's print dialog from a bill. Direct silent printing cannot be provided consistently across all browsers and devices; that needs printer-specific integration.
+
 ## Run everything with Docker
 
 If you would rather not install Node dependencies or MySQL locally, one command
@@ -115,7 +122,7 @@ ports: `docker compose down`.
 - Cashier POS lists open bills and refreshes the list every five seconds.
 - Select an open bill in POS to see its current items, add configured menu items, send those additions to the kitchen, and print the updated combined bill.
 - The cashier Bills page is the bill history. Open bills link back to POS; printing is done from POS.
-- The backend records bills and orders in MySQL. Open table orders share one bill until settled.
+- The backend records bills and orders in MySQL. Orders share a bill while a table session is active. When the waiter closes the table, the table is released for new customers while the old bill remains open in the cashier queue until checkout.
 
 ## Part payments and dues
 
