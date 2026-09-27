@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   LogOut,
   ReceiptText,
+  Settings,
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
@@ -22,6 +23,7 @@ const navigationItems = [
   { href: "/waiter/orders", label: "Orders", Icon: ClipboardList },
   { href: "/waiter/bills", label: "Bills", Icon: ReceiptText },
   { href: "/waiter/profile", label: "Profile", Icon: UserRound },
+  { href: "/waiter/settings", label: "Printer Setup", Icon: Settings },
 ] as const;
 
 export function WaiterLayout({ children }: { children: React.ReactNode }) {

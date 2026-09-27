@@ -1,6 +1,6 @@
 "use client";
 
-import { Banknote, Clock3, LogOut, Menu, ReceiptText } from "lucide-react";
+import { Banknote, Clock3, LogOut, Menu, ReceiptText, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -15,6 +15,7 @@ const items = [
   { href: "/cashier/bills", label: "Bills", Icon: ReceiptText },
   { href: "/cashier/due-payments", label: "Due Payments", Icon: ReceiptText },
   { href: "/cashier/pending-payment", label: "Pending Payment", Icon: Clock3 },
+  { href: "/cashier/settings", label: "Printer Setup", Icon: Settings },
 ] as const;
 
 export function CashierLayout({ children }: { children: React.ReactNode }) {
