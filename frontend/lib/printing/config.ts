@@ -11,12 +11,8 @@ export function sanitizePrinterConfig(config: PrinterConfig): PrinterConfig {
   const sanitized = { ...DEFAULT_PRINTER_CONFIG, ...config, endpoint: String(config?.endpoint ?? "").trim(), token: String(config?.token ?? "") };
   const nativeWindow = typeof window !== "undefined" ? (window as NativeWindow) : undefined;
   if (isAndroidBrowser() && !nativeWindow?.SajhaNative) {
-    const prefersSerial = typeof navigator !== "undefined" && "serial" in navigator;
-    if (["LOCAL_USB", "BLUETOOTH", "NETWORK"].includes(sanitized.connection)) {
-      return { ...sanitized, connection: prefersSerial ? "WEB_SERIAL" : "BROWSER", endpoint: "", token: "" };
-    }
-    if (sanitized.connection === "USB") {
-      return { ...sanitized, endpoint: "", token: "" };
+    if (["LOCAL_USB", "BLUETOOTH", "NETWORK", "WEB_SERIAL", "USB"].includes(sanitized.connection)) {
+      return { ...sanitized, connection: "BROWSER", endpoint: "", token: "" };
     }
   }
   if (sanitized.connection === "ANDROID_NATIVE") {

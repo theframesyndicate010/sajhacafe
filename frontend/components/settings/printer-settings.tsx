@@ -23,8 +23,8 @@ export function PrinterSettings() {
     const saved = readPrinterConfig();
     const native = hasAndroidPrintBridge();
     const androidPwa = isAndroidBrowser() && !native;
-    const preferredConnection: PrinterConfig["connection"] = native ? "BLUETOOTH" : androidPwa ? ("serial" in navigator ? "WEB_SERIAL" : "BROWSER") : saved.connection;
-    const initial = native && saved.connection !== "BROWSER" ? { ...saved, connection: "BLUETOOTH" as const } : androidPwa && ["LOCAL_USB", "BLUETOOTH", "NETWORK"].includes(saved.connection) ? { ...saved, connection: preferredConnection, endpoint: "", token: "" } : androidPwa && saved.connection === "USB" ? { ...saved, endpoint: "", token: "" } : { ...saved, connection: preferredConnection };
+    const preferredConnection: PrinterConfig["connection"] = native ? "BLUETOOTH" : androidPwa ? "BROWSER" : saved.connection;
+    const initial = native && saved.connection !== "BROWSER" ? { ...saved, connection: "BLUETOOTH" as const } : androidPwa && ["LOCAL_USB", "BLUETOOTH", "NETWORK", "WEB_SERIAL", "USB"].includes(saved.connection) ? { ...saved, connection: preferredConnection, endpoint: "", token: "" } : { ...saved, connection: preferredConnection };
     setConfig(initial);
     setAndroidMode(native);
     if (native) void listAndroidPrinters().then(setPairedPrinters).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Unable to read paired Android printers."));
