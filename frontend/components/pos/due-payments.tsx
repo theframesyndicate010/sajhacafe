@@ -82,9 +82,9 @@ export function DuePayments() {
 
       <div className="card due-list">
         {dues.length ? (
-          <div className="menu-manager-table-wrap">
-            <table className="table">
-              <thead><tr><th>Bill</th><th>Customer</th><th>Table</th><th>Total</th><th>Paid</th><th>Due</th><th>Action</th></tr></thead>
+          <div className="due-payments-table-wrap">
+            <table className="table due-payments-table">
+              <thead><tr><th scope="col">Bill</th><th scope="col">Customer</th><th scope="col">Table</th><th scope="col">Total</th><th scope="col">Paid</th><th scope="col">Due</th><th scope="col">Action</th></tr></thead>
               <tbody>
                 {dues.map(({ bill, total, paid, due }) => {
                   const billHref = pathname.startsWith("/cashier") ? `/cashier/pos?billId=${encodeURIComponent(bill.id)}` : `/receipt/${encodeURIComponent(bill.id)}`;

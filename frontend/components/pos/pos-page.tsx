@@ -14,7 +14,7 @@ const toPaymentMethod = (method: string): PaymentMethod => ({ Cash: "CASH", Card
 
 type CheckoutSummary = { target: string; paid: number; due: number };
 
-export function PosPage({ cashier = false }: { cashier?: boolean }) {
+export function PosPage({ cashier = false, waiter = false }: { cashier?: boolean; waiter?: boolean }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
@@ -23,6 +23,7 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
   const [selectedBillId, setSelectedBillId] = useState(initialBillId);
   const [category, setCategory] = useState("All");
   const [search, setSearch] = useState("");
+  const [showAllMenuMobile, setShowAllMenuMobile] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [amountReceived, setAmountReceived] = useState("");
   const [onlinePaymentMethod, setOnlinePaymentMethod] = useState("eSewa");
@@ -34,7 +35,7 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
   const [orderId, setOrderId] = useState<string | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [menuCategories, setMenuCategories] = useState<string[]>([]);
-  const { items, table, customer, add, changeQuantity, setTable, setCustomer, clear } = usePosStore();
+  const { items, table, customer, add, changeQuantity, setNote, setTable, setCustomer, clear } = usePosStore();
   const menuQuery = useQuery({ queryKey: ["menu-items"], queryFn: api.menuItems });
   const tablesQuery = useQuery({ queryKey: ["tables"], queryFn: api.tables });
   const billsQuery = useQuery({ queryKey: ["bills", "OPEN"], queryFn: () => api.bills("OPEN"), enabled: cashier, refetchInterval: 5000, refetchOnWindowFocus: true });
@@ -102,11 +103,17 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
   const total = subtotal;
   const sendMutation = useMutation({
     mutationFn: async () => {
-      const order = await api.createOrder({ orderType: "DINE_IN", tableId: apiTables.find((entry) => entry.tableNumber === table)?.id, items: items.map((item) => ({ menuItemId: item.id, quantity: item.quantity, notes: item.note })) });
+      const order = await api.createOrder({ orderType: "DINE_IN", tableId: apiTables.find((entry) => entry.tableNumber === table)?.id, customerName: customer.trim() || undefined, items: items.map((item) => ({ menuItemId: item.id, quantity: item.quantity, notes: item.note })) });
       await api.sendOrderToKitchen(order.id);
       return order;
     },
     onSuccess: async (result) => {
+      if (waiter) {
+        clear();
+        setOrderId(result.id);
+        await queryClient.invalidateQueries({ queryKey: ["orders"] });
+        return;
+      }
       if (cashier && selectedBill) {
         clear();
         setOrderId(null);
@@ -171,7 +178,8 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
         }
         return { target: selectedBill.id, paid: applied, due: roundMoney(selectedBillDue - applied) };
       }
-      const order = orderId ? await api.order(orderId) : await api.createOrder({ orderType: "DINE_IN", tableId: apiTables.find((entry) => entry.tableNumber === table)?.id, items: items.map((item) => ({ menuItemId: item.id, quantity: item.quantity, notes: item.note })) });
+      const order = orderId ? await api.order(orderId) : await api.createOrder({ orderType: "DINE_IN", tableId: apiTables.find((entry) => entry.tableNumber === table)?.id, customerName: customer.trim() || undefined, items: items.map((item) => ({ menuItemId: item.id, quantity: item.quantity, notes: item.note })) });
+      if (orderId && customer.trim()) await api.updateBillCustomer(order.id, customer.trim());
       const balance = balanceDue(order.totalAmount, settledTotal(order.payments));
       if (balance <= 0) throw new Error("This order is already fully paid.");
       const applied = roundMoney(Math.min(tendered, balance));
@@ -254,14 +262,16 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
         </span>
       </div>}
 
-      <h1 className="page-title">{cashier ? "Cashier POS" : "Point of sale"}</h1>
-      <p className="muted">{cashier ? "Open waiter bills, add customer requests, and print the updated bill." : "Create an order, send its KOT to the kitchen, or complete checkout without leaving the POS."}</p>
+      <div className={waiter ? "waiter-page waiter-pos-shell" : undefined}>
+      <h1 className="page-title">{waiter ? "Point of sale" : cashier ? "Cashier POS" : "Point of sale"}</h1>
+      <p className="muted">{waiter ? "Choose a table, add items, and send the order to the kitchen." : cashier ? "Open waiter bills, add customer requests, and print the updated bill." : "Create an order, send its KOT to the kitchen, or complete checkout without leaving the POS."}</p>
+      {waiter && orderId && <div className="waiter-submit-success" role="status"><div><strong>Order sent</strong><span>Order #{orderId} · {table} · SENT TO KITCHEN</span></div><button onClick={() => setOrderId(null)} type="button">Create another order</button></div>}
 
       {cashier && <section aria-label="Open bills" className="cashier-open-bills">
         <div className="cashier-open-bills-heading"><h2>Open bills</h2><span>{openBills.length} active</span></div>
         {billsQuery.error && <p className="error" role="alert">Unable to load open bills.</p>}
         {billsQuery.isLoading ? <p className="muted">Loading bills…</p> : openBills.length ? <div className="cashier-open-bills-list">
-          {openBills.map((bill) => <button aria-pressed={selectedBillId === bill.id} className={`cashier-open-bill ${selectedBillId === bill.id ? "selected" : ""}`} key={bill.id} onClick={() => chooseBill(bill.id)} type="button"><span><strong>Bill #{bill.billNumber}</strong><small>{bill.table?.tableNumber ?? "Takeaway"} · {bill.orderCount} order{bill.orderCount === 1 ? "" : "s"}</small></span><strong>NPR {Number(bill.totalAmount).toLocaleString()}</strong></button>)}
+          {openBills.map((bill) => <button aria-pressed={selectedBillId === bill.id} className={`cashier-open-bill ${selectedBillId === bill.id ? "selected" : ""}`} key={bill.id} onClick={() => chooseBill(bill.id)} type="button"><span><strong>Bill #{bill.billNumber}</strong><small>{bill.customer?.name ?? "Walk-in customer"} · {bill.table?.tableNumber ?? "Takeaway"} · {bill.orderCount} order{bill.orderCount === 1 ? "" : "s"}</small></span><strong>NPR {Number(bill.totalAmount).toLocaleString()}</strong></button>)}
         </div> : <p className="muted">No open bills. Waiter orders will appear here when created.</p>}
       </section>}
 
@@ -270,10 +280,13 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
           categories={["All", ...menuCategories]}
           category={category}
           items={filteredMenu}
+          mobileShowMore
           search={search}
-          onAddItem={add}
-          onCategoryChange={setCategory}
-          onSearchChange={setSearch}
+          showAllMobileItems={showAllMenuMobile}
+          onAddItem={(item) => { if (waiter) setOrderId(null); add(item); }}
+          onCategoryChange={(value) => { setCategory(value); setShowAllMenuMobile(false); }}
+          onSearchChange={(value) => { setSearch(value); setShowAllMenuMobile(false); }}
+          onToggleMobileItems={() => setShowAllMenuMobile((showAll) => !showAll)}
         />
 
         <CurrentOrder
@@ -312,11 +325,14 @@ export function PosPage({ cashier = false }: { cashier?: boolean }) {
           onOnlineAmountReceivedChange={setOnlineAmountReceived}
           onOnlinePaymentMethodChange={setOnlinePaymentMethod}
           onQuantityChange={changeQuantity}
+          onNoteChange={setNote}
           onReferenceChange={setReference}
           onPrintBill={() => selectedBill && router.push(`/cashier/bills/${encodeURIComponent(selectedBill.id)}`)}
           onSendKot={() => sendMutation.mutate()}
           onTableChange={setTable}
+          waiterMode={waiter}
         />
+      </div>
       </div>
     </>
   );

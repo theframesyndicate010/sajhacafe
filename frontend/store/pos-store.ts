@@ -14,6 +14,7 @@ type PosState = {
   customer: string;
   add: (item: MenuItem) => void;
   changeQuantity: (id: string, delta: number) => void;
+  setNote: (id: string, note: string) => void;
   clear: () => void;
   setCustomer: (value: string) => void;
   setTable: (value: string) => void;
@@ -51,6 +52,10 @@ export const usePosStore = create<PosState>((set) => ({
         return quantity > 0 ? [{ ...line, quantity }] : [];
       }),
     })),
+
+  setNote: (id, note) => set((state) => ({
+    items: state.items.map((item) => item.id === id ? { ...item, note } : item),
+  })),
 
   clear: () => set({ items: [], customer: "" }),
 }));

@@ -6,6 +6,7 @@ const paymentMethods = ["Cash", "Card", "eSewa", "Khalti", "Bank Transfer", "Oth
 const onlinePaymentMethods = ["eSewa", "Khalti", "Card", "Bank Transfer", "Other"];
 
 type CurrentOrderProps = {
+  waiterMode?: boolean;
   amountReceived: string;
   customer: string;
   cashierBill?: Bill | null;
@@ -37,6 +38,7 @@ type CurrentOrderProps = {
   onOnlineAmountReceivedChange: (value: string) => void;
   onOnlinePaymentMethodChange: (value: string) => void;
   onQuantityChange: (id: string, delta: number) => void;
+  onNoteChange?: (id: string, note: string) => void;
   onReferenceChange: (value: string) => void;
   onPrintBill?: () => void;
   onSendKot: () => void;
@@ -44,6 +46,7 @@ type CurrentOrderProps = {
 };
 
 export function CurrentOrder({
+  waiterMode = false,
   amountReceived,
   customer,
   cashierBill,
@@ -75,6 +78,7 @@ export function CurrentOrder({
   onOnlineAmountReceivedChange,
   onOnlinePaymentMethodChange,
   onQuantityChange,
+  onNoteChange,
   onReferenceChange,
   onPrintBill,
   onSendKot,
@@ -129,7 +133,7 @@ export function CurrentOrder({
         </label>
       </div>}
 
-      {!cashierBill && <div className="manual-item">
+      {!cashierBill && !waiterMode && <div className="manual-item">
         <strong>Manual counter item</strong>
         <div className="form-row">
           <label className="field">
@@ -167,6 +171,7 @@ export function CurrentOrder({
             <strong>{item.name}</strong>
             <br />
             <small className="muted">NPR {item.price} each</small>
+            {waiterMode && <input aria-label={`Note for ${item.name}`} className="waiter-note-input" onChange={(event) => onNoteChange?.(item.id, event.target.value)} placeholder="Add item note" value={item.note ?? ""} />}
           </div>
           <div className="qty">
             <button onClick={() => onQuantityChange(item.id, -1)} type="button">−</button>
@@ -179,7 +184,7 @@ export function CurrentOrder({
       {cashierBill && hasItems && <div className="total"><span>Additions</span><strong>NPR {total.toLocaleString()}</strong></div>}
       {!cashierBill && <><div className="total"><span>Subtotal (before VAT)</span><strong>NPR {subtotal}</strong></div><div className="total"><span>VAT included (13%)</span><span>NPR {total - subtotal}</span></div><div className="total" style={{ fontSize: 18 }}><strong>Total</strong><strong>NPR {total}</strong></div></>}
 
-      {(!cashierBill || !hasItems) && <>
+      {(!cashierBill || !hasItems) && !waiterMode && <>
       <hr style={{ border: 0, borderTop: "1px solid var(--border-color)", margin: "18px 0 12px" }} />
       <strong>Checkout</strong>
 
@@ -268,7 +273,9 @@ export function CurrentOrder({
       {errorMessage && <p className="error">{errorMessage}</p>}
       {orderId && <p className="tag">KOT sent · Order #{orderId}</p>}
 
-      {cashierBill ? <div className="form-row cashier-bill-actions" style={{ marginTop: 14 }}>
+      {waiterMode ? <div className="form-row waiter-order-actions" style={{ marginTop: 14 }}>
+        <button className="btn" disabled={!hasItems || isSendingKot} onClick={onSendKot} type="button">{isSendingKot ? "Sending…" : "Send order to kitchen"}</button>
+      </div> : cashierBill ? <div className="form-row cashier-bill-actions" style={{ marginTop: 14 }}>
         {hasItems
           ? <button className="btn" disabled={isSendingKot} onClick={onAddToBill} type="button">{isSendingKot ? "Saving and sending…" : "Add items to bill"}</button>
           : <><button className="btn" disabled={checkoutTotal <= 0 || paid <= 0 || isCheckingOut} onClick={onCheckout} type="button">{isCheckingOut ? "Processing…" : checkoutLabel}</button><button className="btn secondary" disabled={isSendingKot} onClick={onPrintBill} type="button">Print bill</button></>}

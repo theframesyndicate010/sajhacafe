@@ -97,6 +97,43 @@ export class BillsService {
     return this.get(billId, tenantId);
   }
 
+  async delete(id: string, tenantId: string) {
+    await this.prisma.$transaction(async (tx) => {
+      const initial = await tx.bill.findFirst({ where: { id, tenantId }, select: { id: true, tableId: true } });
+      if (!initial) throw new NotFoundException('Bill not found');
+      if (initial.tableId) {
+        await tx.$queryRaw(Prisma.sql`SELECT id FROM RestaurantTable WHERE id = ${initial.tableId} AND tenantId = ${tenantId} FOR UPDATE`);
+      }
+      const bill = await tx.bill.findFirst({
+        where: { id: initial.id, tenantId },
+        select: {
+          id: true,
+          status: true,
+          tableId: true,
+          orders: {
+            select: {
+              id: true,
+              status: true,
+              _count: { select: { payments: true, kots: true, refunds: true, ledgerEntries: true } },
+            },
+          },
+        },
+      });
+      if (!bill) throw new NotFoundException('Bill not found');
+      if (bill.status !== 'OPEN') throw new BadRequestException('A closed bill cannot be deleted');
+      if (bill.orders.some((order) => order.status !== 'DRAFT' || Object.values(order._count).some((count) => count > 0))) {
+        throw new BadRequestException('Only bills with unsent draft orders and no payment or ledger history can be deleted');
+      }
+
+      await tx.bill.deleteMany({ where: { id: bill.id, tenantId, status: 'OPEN' } });
+      if (bill.tableId) {
+        const activeBill = await tx.bill.findFirst({ where: { tenantId, tableId: bill.tableId, status: 'OPEN', tableClosedAt: null }, select: { id: true } });
+        if (!activeBill) await tx.restaurantTable.updateMany({ where: { id: bill.tableId, tenantId, status: 'OCCUPIED' }, data: { status: 'AVAILABLE' } });
+      }
+    });
+    return { id, deleted: true };
+  }
+
   private present(bill: Prisma.BillGetPayload<{ select: typeof billSelect }>) {
     const total = (key: 'subtotal' | 'discountAmount' | 'taxAmount' | 'totalAmount') => bill.orders.reduce((sum, order) => sum + Number(order[key]), 0);
     const payments = bill.orders.flatMap((order) => order.payments);

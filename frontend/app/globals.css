@@ -179,7 +179,7 @@
   }
 }
 
-/* The existing stacked POS remains the mobile layout below tablet width. */
+/* The sidebar becomes a drawer below desktop width. */
 @media (max-width: 1199px) {
   .topbar {
     z-index: 1001;
@@ -243,15 +243,52 @@
     padding: 0;
     cursor: pointer;
   }
+}
 
-  .pos {
-    grid-template-columns: minmax(0, 1fr);
+/* Keep the admin POS side by side on tablet and desktop, scaling both panels. */
+@media (min-width: 901px) {
+  .cafe-page .pos,
+  .cashier-main .pos,
+  .waiter-pos-shell .pos {
+    grid-template-columns: minmax(0, 1fr) clamp(280px, 30vw, 440px);
+    gap: clamp(10px, 1.2vw, 18px);
   }
 
-  .pos .order {
-    position: static;
-    max-height: none;
-    overflow: visible;
+  .cafe-page .pos > *,
+  .cashier-main .pos > *,
+  .waiter-pos-shell .pos > *,
+  .cafe-page .pos .order,
+  .cashier-main .pos .order,
+  .waiter-pos-shell .pos .order,
+  .cafe-page .pos .menu-grid,
+  .cashier-main .pos .menu-grid,
+  .waiter-pos-shell .pos .menu-grid {
+    min-width: 0;
+  }
+
+  .cafe-page .pos .menu-grid,
+  .cashier-main .pos .menu-grid,
+  .waiter-pos-shell .pos .menu-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+    gap: clamp(8px, 1vw, 12px);
+  }
+
+  .cafe-page .pos .order,
+  .cashier-main .pos .order,
+  .waiter-pos-shell .pos .order {
+    box-sizing: border-box;
+    padding: clamp(12px, 1.2vw, 18px);
+  }
+
+  .cafe-page .pos .order input,
+  .cafe-page .pos .order select,
+  .cashier-main .pos .order input,
+  .cashier-main .pos .order select,
+  .waiter-pos-shell .pos .order input,
+  .waiter-pos-shell .pos .order select {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
   }
 }
 
@@ -549,8 +586,26 @@
 
 .due-list {
   min-width: 0;
-  overflow-x: auto;
+  overflow: visible;
 }
+
+.due-payments-table-wrap { width: 100%; max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; border: 1px solid var(--border-color); border-radius: 10px; }
+.due-payments-table { min-width: 900px; table-layout: fixed; border-collapse: separate; border-spacing: 0; }
+.due-payments-table th,.due-payments-table td { padding: 12px 10px; white-space: nowrap; }
+.due-payments-table th { color: #fff; background: var(--primary-blue); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.due-payments-table th:nth-child(1) { width: 190px; }
+.due-payments-table th:nth-child(2) { width: 155px; }
+.due-payments-table th:nth-child(3) { width: 90px; }
+.due-payments-table th:nth-child(4),.due-payments-table th:nth-child(5),.due-payments-table th:nth-child(6) { width: 120px; }
+.due-payments-table th:nth-child(7) { width: 155px; }
+.due-payments-table td:nth-child(2) { overflow: hidden; text-overflow: ellipsis; }
+.due-payments-table tbody tr:nth-child(even) { background: #f7faff; }
+.due-payments-table tbody tr:hover { background: #edf4ff; }
+.due-payments-table th:last-child,.due-payments-table td:last-child { position: sticky; right: 0; z-index: 1; }
+.due-payments-table th:last-child { z-index: 2; background: var(--primary-blue); }
+.due-payments-table td:last-child { background: var(--card-bg); box-shadow: -8px 0 12px -12px #172b4d88; }
+.due-payments-table tbody tr:nth-child(even) td:last-child { background: #f7faff; }
+.due-payments-table tbody tr:hover td:last-child { background: #edf4ff; }
 
 .due-list a {
   color: var(--primary-blue);
@@ -893,7 +948,7 @@
   .table-create-fields .btn { width: 100%; }
 }
 
-/* Keep the POS current-order panel pinned above the mobile viewport bottom. */
+/* The unscoped POS keeps the cashier's compact floating order panel on mobile. */
 @media (max-width: 900px) {
   .pos { padding-bottom: calc(44dvh + 24px); }
   .pos .order {
@@ -908,6 +963,109 @@
   }
 }
 
+/* The admin POS flows vertically on phones so its order never covers the menu. */
+@media (max-width: 900px) {
+  .cafe-page .pos,
+  .cashier-main .pos,
+  .waiter-pos-shell .pos {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    padding-bottom: 0;
+  }
+
+  .cafe-page .pos .menu-grid,
+  .cashier-main .pos .menu-grid,
+  .waiter-pos-shell .pos .menu-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .cafe-page .pos .menu-grid:not(.show-all-mobile) > .menu-item:nth-child(n + 5),
+  .cashier-main .pos .menu-grid:not(.show-all-mobile) > .menu-item:nth-child(n + 5),
+  .waiter-pos-shell .pos .menu-grid:not(.show-all-mobile) > .menu-item:nth-child(n + 5) {
+    display: none;
+  }
+
+  .cafe-page .pos .pos-show-more,
+  .cashier-main .pos .pos-show-more,
+  .waiter-pos-shell .pos .pos-show-more {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+    margin-top: 10px;
+    padding: 8px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 9px;
+    color: var(--primary-blue);
+    background: var(--card-bg);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .cafe-page .pos .menu-item,
+  .cashier-main .pos .menu-item,
+  .waiter-pos-shell .pos .menu-item {
+    min-width: 0;
+    min-height: 82px;
+    padding: 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .cafe-page .pos .order,
+  .cashier-main .pos .order,
+  .waiter-pos-shell .pos .order {
+    position: static;
+    inset: auto;
+    z-index: auto;
+    width: auto;
+    max-height: none;
+    margin: 0;
+    padding: 14px;
+    overflow: visible;
+    overscroll-behavior: auto;
+  }
+
+  .cafe-page .pos .order-row,
+  .cashier-main .pos .order-row,
+  .waiter-pos-shell .pos .order-row {
+    align-items: center;
+  }
+
+  .cafe-page .pos .order-row > div:first-child,
+  .cashier-main .pos .order-row > div:first-child,
+  .waiter-pos-shell .pos .order-row > div:first-child {
+    min-width: 0;
+    flex: 1 1 120px;
+    overflow-wrap: anywhere;
+  }
+
+  .cafe-page .pos .qty,
+  .cashier-main .pos .qty,
+  .waiter-pos-shell .pos .qty {
+    flex: 0 0 auto;
+  }
+
+  .cafe-page .pos .manual-item .field,
+  .cashier-main .pos .manual-item .field,
+  .waiter-pos-shell .pos .manual-item .field {
+    min-width: 0;
+    flex: 1 1 110px;
+  }
+
+  .cafe-page .pos .manual-item .btn,
+  .cashier-main .pos .manual-item .btn,
+  .waiter-pos-shell .pos .manual-item .btn {
+    min-height: 42px;
+    flex: 1 1 100%;
+  }
+}
+
+.pos-show-more {
+  display: none;
+}
+
 .bills-archive { display: grid; min-width: 0; max-width: 100%; gap: 20px; }
 .bills-archive-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
 .bills-archive-heading h1 { margin: 0; color: var(--text-dark); font-size: clamp(26px, 3vw, 34px); }
@@ -919,18 +1077,27 @@
 .bills-archive-filters label,.due-list-filters label { display: grid; gap: 6px; color: var(--text-muted); font-size: 12px; font-weight: 700; }
 .bills-archive-filters input,.bills-archive-filters select,.due-list-filters input { width: 100%; min-width: 0; height: 40px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-dark); background: var(--card-bg); font: inherit; font-size: 13px; }
 .bills-archive-table-wrap { width: 100%; min-width: 0; overflow-x: auto; overscroll-behavior-inline: contain; border: 1px solid var(--border-color); border-radius: 12px; background: var(--card-bg); box-shadow: 0 5px 20px #172b4d08; }
-.bills-archive-table { width: 100%; min-width: 940px; table-layout: fixed; border-collapse: collapse; text-align: left; }
-.bills-archive-table th:nth-child(1) { width: 12%; }
-.bills-archive-table th:nth-child(2) { width: 15%; }
-.bills-archive-table th:nth-child(3) { width: 9%; }
+.bills-archive-table { width: 100%; min-width: 1180px; table-layout: fixed; border-collapse: separate; border-spacing: 0; text-align: left; }
+.bills-archive-table th:nth-child(1) { width: 7%; }
+.bills-archive-table th:nth-child(2) { width: 12%; }
+.bills-archive-table th:nth-child(3) { width: 18%; }
 .bills-archive-table th:nth-child(4) { width: 8%; }
-.bills-archive-table th:nth-child(5),.bills-archive-table th:nth-child(6),.bills-archive-table th:nth-child(7) { width: 12%; }
-.bills-archive-table th:nth-child(8) { width: 10%; }
-.bills-archive-table th:nth-child(9) { width: 10%; }
-.bills-archive-table th,.bills-archive-table td { padding: 13px 15px; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
-.bills-archive-table th { color: var(--text-muted); background: #f8fafc; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.bills-archive-table th:nth-child(5) { width: 6%; }
+.bills-archive-table th:nth-child(6),.bills-archive-table th:nth-child(7) { width: 8%; }
+.bills-archive-table th:nth-child(8) { width: 11%; }
+.bills-archive-table th:nth-child(9) { width: 8%; }
+.bills-archive-table th:nth-child(10) { width: 230px; }
+.bills-archive-table th,.bills-archive-table td { padding: 12px 10px; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+.bills-archive-table th { color: #fff; background: var(--primary-blue); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
 .bills-archive-table td { color: var(--text-dark); font-size: 13px; }
 .bills-archive-table tbody tr:last-child td { border-bottom: 0; }
+.bills-archive-table tbody tr:nth-child(even) { background: #f7faff; }
+.bills-archive-table tbody tr:hover { background: #edf4ff; }
+.bills-archive-table th:last-child,.bills-archive-table td:last-child { position: sticky; right: 0; z-index: 1; }
+.bills-archive-table th:last-child { z-index: 2; background: var(--primary-blue); }
+.bills-archive-table td:last-child { background: var(--card-bg); box-shadow: -8px 0 12px -12px #172b4d88; }
+.bills-archive-table tbody tr:nth-child(even) td:last-child { background: #f7faff; }
+.bills-archive-table tbody tr:hover td:last-child { background: #edf4ff; }
 .bill-number { color: var(--primary-blue); }
 .bill-date,.bill-time { display: block; }
 .bill-time { margin-top: 3px; color: var(--text-muted); font-size: 11px; }
@@ -943,6 +1110,14 @@
 .bill-status.closed { color: #18734a; background: #e5f5eb; }
 .bill-view-link { color: var(--primary-blue); font-weight: 750; text-decoration: none; }
 .bill-view-link:hover { text-decoration: underline; }
+.bill-actions { display: flex; align-items: center; gap: 5px; }
+.bill-action { display: inline-flex; min-height: 32px; align-items: center; justify-content: center; gap: 4px; padding: 5px 7px; border: 1px solid #cbd8eb; border-radius: 7px; color: var(--primary-blue); background: #fff; font: inherit; font-size: 11px; font-weight: 700; text-decoration: none; cursor: pointer; }
+.bill-action:hover:not(:disabled) { background: #edf4ff; }
+.bill-action.save { color: #fff; border-color: var(--primary-blue); background: var(--primary-blue); }
+.bill-action.delete { color: #b42318; border-color: #f0c5c2; }
+.bill-action:disabled { opacity: .45; cursor: not-allowed; }
+.bill-customer-edit { display: flex; min-width: 0; align-items: center; gap: 4px; }
+.bill-customer-edit input { width: 100%; min-width: 0; height: 32px; box-sizing: border-box; padding: 0 7px; border: 1px solid var(--border-color); border-radius: 6px; font: inherit; font-size: 12px; }
 .bills-archive-empty { padding: 32px; text-align: center; }
 .bills-archive-empty h2 { margin: 0; font-size: 18px; }
 .bills-archive-empty p { margin: 8px 0 0; color: var(--text-muted); }

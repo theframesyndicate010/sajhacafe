@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseEnumPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseEnumPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { BillStatus } from '@prisma/client';
 import { IsDateString, IsString, MaxLength } from 'class-validator';
 import { Request } from 'express';
@@ -48,5 +48,11 @@ export class BillsController {
   @RequirePermission('orders.update')
   close(@Param('id') id: string, @Req() request: Request) {
     return this.bills.close(id, request.tenantId!);
+  }
+
+  @Delete(':id')
+  @RequirePermission('bills.delete')
+  delete(@Param('id') id: string, @Req() request: Request) {
+    return this.bills.delete(id, request.tenantId!);
   }
 }

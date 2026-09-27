@@ -10,13 +10,13 @@ export type OrderItem = { id: string; menuItemId: string; itemName: string; quan
 export type OrderPayment = { id: string; method: PaymentMethod; amount: number | string; referenceNumber?: string | null; status?: string };
 export type Order = { id: string; orderNumber: string; orderType: "DINE_IN" | "TAKEAWAY"; status: string; paymentStatus: string; subtotal: number | string; discountAmount: number | string; taxAmount: number | string; totalAmount: number | string; billId?: string; createdAt?: string; table?: RestaurantTable | null; customer?: { name: string } | null; items: OrderItem[]; payments?: OrderPayment[] };
 export type BillOrder = { id: string; totalAmount: number | string; payments: OrderPayment[] };
-export type Bill = { id: string; billNumber: string; status: "OPEN" | "CLOSED"; printedAt?: string | null; closedAt?: string | null; tableClosedAt?: string | null; createdAt: string; updatedAt: string; tableId?: string | null; tableNumber?: string | null; table?: RestaurantTable | null; orderNumber: string; orderCount: number; orderIds?: string[]; orders?: BillOrder[]; paymentStatus: string; subtotal: number | string; discountAmount: number | string; taxAmount: number | string; totalAmount: number | string; customer?: { name: string } | null; items: OrderItem[]; payments?: OrderPayment[] };
+export type Bill = { id: string; billNumber: string; status: "OPEN" | "CLOSED"; printedAt?: string | null; closedAt?: string | null; tableClosedAt?: string | null; createdAt: string; updatedAt: string; tableId?: string | null; tableNumber?: string | null; table?: RestaurantTable | null; orderNumber: string; orderCount: number; orderIds?: string[]; orderStatuses?: string[]; orders?: BillOrder[]; paymentStatus: string; subtotal: number | string; discountAmount: number | string; taxAmount: number | string; totalAmount: number | string; customer?: { name: string } | null; items: OrderItem[]; payments?: OrderPayment[] };
 export type KitchenOrder = { id: string; kotNumber: string; status: "PENDING" | "PREPARING" | "READY" | "COMPLETED" | "CANCELLED"; order: { table?: RestaurantTable | null }; items: { quantity: number | string; orderItem: { itemName: string } }[]; createdAt: string };
 export type InventoryItem = { id: string; name: string; sku?: string | null; unit: string; currentQuantity: number | string; minimumQuantity: number | string; costPrice: number | string; isActive: boolean };
 export type DashboardSummary = { sales: number | string; orders: number; pendingKot: number; preparingKot: number; readyKot: number; occupiedTables: number; availableTables: number; lowStockItems: number };
 export type RestaurantSettings = { id: string; businessName: string; address?: string | null; phone?: string | null; email?: string | null; logo?: string | null; taxNumber?: string | null; currency: string; timezone: string; taxEnabled: boolean; taxRate: number | string; taxInclusive: boolean };
 export type LoginInput = { email: string; password: string; tenantId?: string };
-export type CreateOrderInput = { orderType: "DINE_IN" | "TAKEAWAY"; tableId?: string; customerId?: string; items: { menuItemId: string; quantity: number; notes?: string }[]; notes?: string; discountAmount?: number };
+export type CreateOrderInput = { orderType: "DINE_IN" | "TAKEAWAY"; tableId?: string; customerId?: string; customerName?: string; items: { menuItemId: string; quantity: number; notes?: string }[]; notes?: string; discountAmount?: number };
 export type PaymentMethod = "CASH" | "CARD" | "ESEWA" | "KHALTI" | "BANK_TRANSFER" | "OTHER";
 
 function parseApiPrice(value: unknown): number {
@@ -65,6 +65,7 @@ export const api = {
   bills: (status?: "OPEN" | "CLOSED") => request<Bill[]>(status ? `/bills?status=${status}` : "/bills"),
   bill: (id: string) => request<Bill>(`/bills/${encodeURIComponent(id)}`),
   updateBillCustomer: (id: string, customerName: string) => request<Bill>(`/bills/${encodeURIComponent(id)}/customer`, { method: "POST", body: JSON.stringify({ customerName }) }),
+  deleteBill: (id: string) => request<{ id: string; deleted: boolean }>(`/bills/${encodeURIComponent(id)}`, { method: "DELETE" }),
   markBillPrinted: (id: string, updatedAt: string) => request<Bill>(`/bills/${encodeURIComponent(id)}/printed`, { method: "POST", body: JSON.stringify({ updatedAt }) }),
   closeBill: (id: string) => request<Bill>(`/bills/${encodeURIComponent(id)}/close`, { method: "POST" }),
   order: (id: string) => request<Order>(`/orders/${id}`),
