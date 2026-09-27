@@ -15,6 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { OrganizationFooter } from "@/components/common/organization-footer";
 import { api } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth";
+import { AndroidPrinterConnectButton } from "@/components/common/android-printer-connect";
 
 const navigationItems = [
   { href: "/waiter", label: "Dashboard", Icon: LayoutDashboard },
@@ -67,6 +68,9 @@ export function WaiterLayout({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
+        <div style={{ marginTop: 12, padding: "0 12px" }}>
+          <AndroidPrinterConnectButton />
+        </div>
         <button onClick={logOut} type="button">
           <LogOut aria-hidden="true" size={18} />
           <span>Logout</span>

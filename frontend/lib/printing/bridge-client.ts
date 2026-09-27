@@ -61,19 +61,19 @@ export async function connectPrintBridge(config: PrinterConfig) {
 }
 export async function thermalPrint(receipt: ReceiptData, config: PrinterConfig) {
   const prepared = await receiptWithRasterLogo(receipt, config.paperWidth);
-  if (hasAndroidPrintBridge()) return printAndroidReceipt(prepared, config);
+  if (config.connection === "ANDROID_NATIVE" || hasAndroidPrintBridge()) return printAndroidReceipt(prepared, config);
   if (config.connection === "USB" || config.connection === "WEB_BLUETOOTH" || config.connection === "WEB_SERIAL") return printWebReceipt(prepared, config);
   const data = formatEscPos(prepared, config.paperWidth, config.encoding);
   return call<{ jobId: string; status: string }>(config, "/print", { printerId: config.id, paperWidth: config.paperWidth, copies: config.copies, encoding: config.encoding, connection: config.connection, dataBase64: asBase64(data) });
 }
 export async function testThermalPrinter(config: PrinterConfig) {
   const receipt = testReceipt(config);
-  if (hasAndroidPrintBridge()) return printAndroidReceipt(receipt, config);
+  if (config.connection === "ANDROID_NATIVE" || hasAndroidPrintBridge()) return printAndroidReceipt(receipt, config);
   if (config.connection === "USB" || config.connection === "WEB_BLUETOOTH" || config.connection === "WEB_SERIAL") return printWebReceipt(receipt, config);
   const data = formatEscPos(receipt, config.paperWidth, config.encoding);
   return call<{ status: string }>(config, "/test-print", { printerId: config.id, paperWidth: config.paperWidth, copies: config.copies, connection: config.connection, dataBase64: asBase64(data) });
 }
 export async function bridgeStatus(config: PrinterConfig) {
-  if (hasAndroidPrintBridge()) return { ...await androidPrinterStatus(), queueLength: 0 };
+  if (config.connection === "ANDROID_NATIVE" || hasAndroidPrintBridge()) return { ...await androidPrinterStatus(), queueLength: 0 };
   return call<{ status: string; transport: string; queueLength: number }>(config, "/status");
 }

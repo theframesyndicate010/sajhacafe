@@ -20,6 +20,7 @@ import androidx.webkit.WebViewFeature;
 
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -28,16 +29,19 @@ public final class MainActivity extends ComponentActivity {
     private WebView webView;
     private BluetoothPrinter printer;
     private final ExecutorService printExecutor = Executors.newSingleThreadExecutor();
-    private ActivityResultLauncher<String> permissionRequest;
+    private ActivityResultLauncher<Array<String>> permissionRequest;
     private Uri appOrigin;
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         printer = new BluetoothPrinter(this);
         appOrigin = Uri.parse(BuildConfig.PWA_URL);
-        permissionRequest = registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> { });
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-            permissionRequest.launch(Manifest.permission.BLUETOOTH_CONNECT);
+        permissionRequest = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> { });
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ArrayList<String> needed = new ArrayList<>();
+            if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) needed.add(Manifest.permission.BLUETOOTH_CONNECT);
+            if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) needed.add(Manifest.permission.BLUETOOTH_SCAN);
+            if (!needed.isEmpty()) permissionRequest.launch(needed.toArray(new String[0]));
         }
 
         webView = new WebView(this);

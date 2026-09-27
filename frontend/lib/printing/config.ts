@@ -19,6 +19,9 @@ export function sanitizePrinterConfig(config: PrinterConfig): PrinterConfig {
       return { ...sanitized, endpoint: "", token: "" };
     }
   }
+  if (sanitized.connection === "ANDROID_NATIVE") {
+    return { ...sanitized, endpoint: "", token: "" };
+  }
   return sanitized;
 }
 

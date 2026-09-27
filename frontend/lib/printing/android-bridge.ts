@@ -1,8 +1,10 @@
 import { formatEscPos } from "./escpos";
 import type { PrinterConfig, ReceiptData } from "./types";
 
-type AndroidPrinter = { id: string; name: string };
+type AndroidPrinter = { id: string; name: string; address?: string };
 type NativeWindow = Window & { SajhaNative?: { postMessage: (message: string) => void; addEventListener: (type: "message", listener: (event: MessageEvent<string>) => void) => void; removeEventListener: (type: "message", listener: (event: MessageEvent<string>) => void) => void } };
+
+export type PairedAndroidPrinter = { address: string; name: string };
 
 export function hasAndroidPrintBridge(): boolean {
   return typeof window !== "undefined" && Boolean((window as NativeWindow).SajhaNative);
@@ -28,11 +30,29 @@ function request<T>(action: string, payload: Record<string, unknown> = {}): Prom
   });
 }
 
-export function listAndroidPrinters() { return request<{ printers: AndroidPrinter[] }>("listPrinters").then(result => result.printers); }
-export function selectAndroidPrinter(printerId: string) { return request<{ selected: boolean; id: string; name: string }>("selectPrinter", { printerId }); }
-export function connectAndroidPrinter(printerId: string) { return request<{ status: string; printerId: string; printerName: string }>("connect", { printerId }); }
+export function listPairedDevices(): Promise<PairedAndroidPrinter[]> {
+  return request<{ printers: AndroidPrinter[] }>("listPrinters").then((result) =>
+    result.printers
+      .map((printer) => ({ address: String(printer.address ?? printer.id).trim(), name: String(printer.name ?? "Bluetooth printer").trim() }))
+      .filter((printer) => Boolean(printer.address))
+  );
+}
+
+export function listAndroidPrinters() {
+  return listPairedDevices().then((printers) => printers.map((printer) => ({ id: printer.address, name: printer.name, address: printer.address })));
+}
+
+export function selectAndroidPrinter(printerId: string) {
+  return request<{ selected: boolean; id: string; name: string; address?: string }>("selectPrinter", { printerId });
+}
+
+export function connectAndroidPrinter(printerIdOrAddress: string) {
+  return request<{ connected: boolean; status: string; printerId: string; printerName: string; address?: string }>("connect", { printerId: printerIdOrAddress, address: printerIdOrAddress });
+}
+
 export function disconnectAndroidPrinter() { return request<{ status: string }>("disconnect"); }
-export function androidPrinterStatus() { return request<{ status: string; transport: string; printerId?: string; printerName?: string }>("status"); }
+export function androidPrinterStatus() { return request<{ connected?: boolean; status: string; transport: string; printerId?: string; printerName?: string; address?: string }>("status"); }
+export function getAndroidPrinterStatus() { return androidPrinterStatus(); }
 
 function encodeBase64(bytes: Uint8Array): string {
   let binary = "";
@@ -41,7 +61,8 @@ function encodeBase64(bytes: Uint8Array): string {
 }
 
 export async function printAndroidReceipt(receipt: ReceiptData, config: PrinterConfig) {
-  if (!config.id || config.id === "default") throw new Error("Select a paired printer in Settings → Printer first.");
+  const targetAddress = config.address ?? config.id ?? "";
+  if (!targetAddress || targetAddress === "default") throw new Error("Connect the XP-C2008 on this Android device before printing.");
   const bytes = formatEscPos(receipt, config.paperWidth, config.encoding);
-  return request<{ status: string; printerName: string }>("print", { printerId: config.id, dataBase64: encodeBase64(bytes), copies: config.copies });
+  return request<{ accepted: boolean; status: string; printerName: string }>("print", { printerId: targetAddress, address: targetAddress, dataBase64: encodeBase64(bytes), copies: config.copies });
 }

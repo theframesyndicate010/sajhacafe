@@ -55,7 +55,8 @@ final class BluetoothPrinter {
         JSONArray result = new JSONArray();
         for (BluetoothDevice device : devices) {
             JSONObject item = new JSONObject();
-            item.put("id", opaqueId(device.getAddress()));
+            item.put("id", device.getAddress());
+            item.put("address", device.getAddress());
             item.put("name", safeName(device));
             result.put(item);
         }
@@ -65,11 +66,11 @@ final class BluetoothPrinter {
     JSONObject select(String id) throws Exception {
         for (int i = 0; i < pairedPrinters().length(); i++) {
             JSONObject item = pairedPrinters().getJSONObject(i);
-            if (id.equals(item.getString("id"))) {
-                String address = findAddress(id);
+            String address = item.getString("address");
+            if (id.equals(item.getString("id")) || id.equals(address)) {
                 if (!address.equals(prefs.getString(ADDRESS_KEY, ""))) closeSocket();
                 prefs.edit().putString(ADDRESS_KEY, address).putString(ID_KEY, id).apply();
-                return new JSONObject().put("selected", true).put("id", id).put("name", item.getString("name"));
+                return new JSONObject().put("selected", true).put("id", id).put("address", address).put("name", item.getString("name"));
             }
         }
         throw new Exception("That printer is no longer paired. Pair it in Android Bluetooth settings and try again.");
@@ -78,16 +79,16 @@ final class BluetoothPrinter {
     JSONObject status() throws Exception {
         String id = prefs.getString(ID_KEY, "");
         String address = prefs.getString(ADDRESS_KEY, "");
-        if (id.isEmpty() || address.isEmpty()) return new JSONObject().put("status", "running").put("transport", "unconfigured");
+        if (address.isEmpty()) return new JSONObject().put("status", "running").put("transport", "unconfigured").put("connected", false).put("address", (String) null);
         BluetoothDevice device = adapter().getRemoteDevice(address);
         boolean connected = socket != null && socket.isConnected();
-        return new JSONObject().put("status", connected ? "connected" : "not-connected").put("transport", "android-bluetooth").put("connected", connected).put("printerId", id).put("printerName", safeName(device));
+        return new JSONObject().put("status", connected ? "connected" : "not-connected").put("transport", "android-native").put("connected", connected).put("address", address).put("printerId", id.isEmpty() ? address : id).put("printerName", safeName(device));
     }
 
     JSONObject connect(String requestedId) throws Exception {
         BluetoothDevice device = selectedDevice(requestedId);
         open(device);
-        return new JSONObject().put("status", "connected").put("printerId", requestedId).put("printerName", safeName(device));
+        return new JSONObject().put("status", "connected").put("connected", true).put("address", device.getAddress()).put("printerId", device.getAddress()).put("printerName", safeName(device));
     }
 
     JSONObject print(String requestedId, byte[] bytes, int copies) throws Exception {
@@ -102,20 +103,33 @@ final class BluetoothPrinter {
             closeSocket();
             throw new Exception("Printer write failed. Check printer power and Bluetooth pairing, then reconnect.", error);
         }
-        return new JSONObject().put("status", "printed").put("printerName", safeName(device));
+        return new JSONObject().put("status", "printed").put("accepted", true).put("address", device.getAddress()).put("printerName", safeName(device));
     }
 
     JSONObject disconnect() {
         closeSocket();
         prefs.edit().remove(ADDRESS_KEY).remove(ID_KEY).apply();
-        return new JSONObject().put("status", "disconnected");
+        return new JSONObject().put("status", "disconnected").put("connected", false);
     }
 
     private BluetoothDevice selectedDevice(String requestedId) throws Exception {
         String id = prefs.getString(ID_KEY, "");
         String address = prefs.getString(ADDRESS_KEY, "");
-        if (id.isEmpty() || address.isEmpty()) throw new Exception("Printer not configured. Open Settings → Printer and select a paired Bluetooth printer.");
-        if (!id.equals(requestedId)) throw new Exception("Selected printer changed. Reconnect the printer in Settings → Printer.");
+        if (address.isEmpty()) throw new Exception("Printer not configured. Pair the XP-C2008 in Android Bluetooth settings and connect it from the app.");
+        String lookup = requestedId == null ? "" : requestedId.trim();
+        if (!lookup.isEmpty() && !lookup.equals(address) && !lookup.equals(id)) {
+            if (lookup.equals(prefs.getString(ID_KEY, ""))) {
+                address = lookup;
+            } else {
+                for (BluetoothDevice device : adapter().getBondedDevices()) {
+                    if (device.getAddress().equals(lookup)) {
+                        address = device.getAddress();
+                        prefs.edit().putString(ADDRESS_KEY, address).putString(ID_KEY, lookup).apply();
+                        break;
+                    }
+                }
+            }
+        }
         return adapter().getRemoteDevice(address);
     }
 
