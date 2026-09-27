@@ -213,13 +213,13 @@
   .waiter-shell { display: block; height: 100dvh; min-height: 0; overflow-x: hidden; overflow-y: auto; padding-bottom: calc(74px + env(safe-area-inset-bottom)); }
   .waiter-sidebar { position: fixed; inset: auto 0 0; z-index: 1100; display: flex; width: 100%; height: calc(66px + env(safe-area-inset-bottom)); min-height: 0; flex-direction: row; align-items: stretch; box-sizing: border-box; padding: 5px 6px env(safe-area-inset-bottom); border-top: 1px solid #dfe6ef; background: #fff; box-shadow: 0 -5px 18px #12234112; }
   .waiter-brand { display: none; }
-  .waiter-sidebar nav { display: grid; width: auto; flex: 4; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; }
-  .waiter-sidebar nav a,.waiter-sidebar > button { position: static; min-width: 0; min-height: 0; justify-content: center; flex-direction: column; gap: 4px; margin: 0; padding: 5px 2px; border-radius: 8px; color: #6c7b91; font-size: 10px; line-height: 1.1; }
-  .waiter-sidebar nav a span,.waiter-sidebar > button span { display: block; }
+  .waiter-sidebar nav { display: grid; width: auto; flex: 5; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; }
+  .waiter-sidebar nav a,.waiter-sidebar > button { position: static; min-width: 0; min-height: 0; justify-content: center; flex-direction: column; gap: 4px; margin: 0; padding: 5px 2px; border-radius: 8px; color: #6c7b91; font-size: 9px; line-height: 1.1; text-align: center; }
+  .waiter-sidebar nav a span,.waiter-sidebar > button span { display: block; width: 100%; white-space: nowrap; text-align: center; }
   .waiter-sidebar nav a.active { color: var(--primary-blue); background: #eaf0ff; }
   .waiter-sidebar nav a:hover,.waiter-sidebar > button:hover { color: var(--primary-blue); background: #f0f3f8; }
   .waiter-sidebar nav a svg,.waiter-sidebar > button svg { display: block; width: 19px; height: 19px; }
-  .waiter-sidebar > button { display: flex; flex: 1; align-self: stretch; background: transparent; }
+  .waiter-sidebar > button { display: flex; flex: 1; max-width: 72px; align-self: stretch; background: transparent; }
   .waiter-main > header { height: 54px; padding: 0 16px; }
   .waiter-main > section { width: 100%; padding: 18px 14px calc(28px + env(safe-area-inset-bottom)); }
   .waiter-page h1 { font-size: 25px; }
