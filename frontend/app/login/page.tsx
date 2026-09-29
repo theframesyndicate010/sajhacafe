@@ -14,7 +14,6 @@ import { useQueryClient } from "@tanstack/react-query";
 const loginSchema = z.object({
   email: z.string().email("Enter a valid email"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  rememberMe: z.boolean(),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
@@ -28,7 +27,7 @@ export default function LoginPage() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<LoginForm>({ resolver: zodResolver(loginSchema), defaultValues: { rememberMe: false } });
+  } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
 
   async function submitLogin(values: LoginForm) {
     setServerError("");
@@ -66,11 +65,6 @@ export default function LoginPage() {
             </button>
           </span>
           {errors.password && <span className="error">{errors.password.message}</span>}
-        </label>
-
-        <label className="login-remember">
-          <input type="checkbox" {...register("rememberMe")} />
-          <span>Remember me</span>
         </label>
 
         {serverError && <p className="error">{serverError}</p>}

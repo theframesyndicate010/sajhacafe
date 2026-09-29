@@ -11,12 +11,12 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const result = await this.auth.login(dto.email, dto.password, dto.tenantId, dto.rememberMe);
+    const result = await this.auth.login(dto.email, dto.password, dto.tenantId);
     response.cookie(process.env.SESSION_COOKIE_NAME ?? 'cafe_session', result.sessionId, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: result.expiresInMs,
+      maxAge: Number(process.env.SESSION_TTL_SECONDS ?? 28800) * 1000,
     });
     return result.user;
   }

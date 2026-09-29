@@ -15,7 +15,7 @@ type MembershipWithAccess = {
 export class AuthService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async login(email: string, password: string, tenantId?: string, rememberMe = false): Promise<{ sessionId: string; user: object; expiresInMs: number }> {
+  async login(email: string, password: string, tenantId?: string): Promise<{ sessionId: string; user: object }> {
     email = email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -33,16 +33,14 @@ export class AuthService {
 
     const membership = this.selectMembership(user.memberships, tenantId);
     const sessionId = randomBytes(32).toString('hex');
-    const ttl = Number(rememberMe
-      ? process.env.REMEMBER_ME_TTL_SECONDS ?? 2592000
-      : process.env.SESSION_TTL_SECONDS ?? 28800) * 1000;
+    const ttl = Number(process.env.SESSION_TTL_SECONDS ?? 28800) * 1000;
 
     await this.prisma.session.create({
       data: { userId: user.id, tenantId: membership.tenantId, tokenHash: this.hash(sessionId), expiresAt: new Date(Date.now() + ttl) },
     });
     await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
-    return { sessionId, user: this.safeUser(user, membership), expiresInMs: ttl };
+    return { sessionId, user: this.safeUser(user, membership) };
   }
 
   async logout(sessionId: string): Promise<void> {
