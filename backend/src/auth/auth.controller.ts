@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { AuthGuard } from './auth.guard';
+import { sessionTtlMs } from './session-ttl';
 
 @Controller('auth')
 export class AuthController {
@@ -16,7 +17,7 @@ export class AuthController {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: Number(process.env.SESSION_TTL_SECONDS ?? 28800) * 1000,
+      maxAge: sessionTtlMs(),
     });
     return result.user;
   }

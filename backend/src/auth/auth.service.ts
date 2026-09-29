@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../common/prisma.service';
+import { sessionTtlMs } from './session-ttl';
 
 type MembershipWithAccess = {
   id: string;
@@ -33,7 +34,7 @@ export class AuthService {
 
     const membership = this.selectMembership(user.memberships, tenantId);
     const sessionId = randomBytes(32).toString('hex');
-    const ttl = Number(process.env.SESSION_TTL_SECONDS ?? 28800) * 1000;
+    const ttl = sessionTtlMs();
 
     await this.prisma.session.create({
       data: { userId: user.id, tenantId: membership.tenantId, tokenHash: this.hash(sessionId), expiresAt: new Date(Date.now() + ttl) },

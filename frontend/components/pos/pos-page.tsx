@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CurrentOrder } from "@/components/pos/current-order";
 import { MenuSelection } from "@/components/pos/menu-selection";
 import { api, type MenuItem, type PaymentMethod } from "@/lib/api/client";
 import { balanceDue, roundMoney, settledTotal } from "@/lib/money";
-import { usePosStore } from "@/store/pos-store";
+import { usePosStore, nextCounterLineId } from "@/store/pos-store";
 
 const toPaymentMethod = (method: string): PaymentMethod => ({ Cash: "CASH", Card: "CARD", eSewa: "ESEWA", Khalti: "KHALTI", "Bank Transfer": "BANK_TRANSFER", Other: "OTHER" }[method] as PaymentMethod ?? "OTHER");
 
@@ -31,6 +31,7 @@ export function PosPage({ cashier = false, waiter = false }: { cashier?: boolean
   const [reference, setReference] = useState("");
   const [manualName, setManualName] = useState("");
   const [manualPrice, setManualPrice] = useState("");
+  const [counterError, setCounterError] = useState<string | null>(null);
   const [checkoutSummary, setCheckoutSummary] = useState<CheckoutSummary | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -79,6 +80,19 @@ export function PosPage({ cashier = false, waiter = false }: { cashier?: boolean
     setMenuCategories([...new Set(nextItems.map((item) => item.category))]);
   }, [menuQuery.data]);
 
+  // The placeholder that backs goods typed straight onto the bill. It is never
+  // shown in the menu grid, so it is filtered out of the browsable list below.
+  const externalItem = useMemo(() => menuItems.find((item) => item.isExternal) ?? null, [menuItems]);
+  const orderPayloadItems = useCallback(
+    () => items.map((item) => ({
+      menuItemId: item.menuItemId,
+      quantity: item.quantity,
+      notes: item.note,
+      ...(item.isExternal ? { itemName: item.name, unitPrice: item.price } : {}),
+    })),
+    [items],
+  );
+
   useEffect(() => {
     if (!tables.includes(table)) setTable(tables[0] || "");
   }, [table, tables, setTable]);
@@ -87,13 +101,25 @@ export function PosPage({ cashier = false, waiter = false }: { cashier?: boolean
   useEffect(() => {
     const order = pendingOrderQuery.data;
     if (!order || loadedPendingOrder.current === order.id) return;
+    // Wait for the menu so counter lines are recognised. Loading them as plain
+    // menu items would silently re-price them to the placeholder's NPR 0.
+    if (menuQuery.isPending) return;
     loadedPendingOrder.current = order.id;
     clear();
     setOrderId(order.id);
     setTable(order.table?.tableNumber ?? "");
     setCustomer(order.customer?.name ?? "Walk-in Customer");
-    for (const item of order.items) for (let quantity = 0; quantity < Number(item.quantity); quantity += 1) add({ id: item.menuItemId, name: item.itemName, category: "", price: Number(item.unitPrice) });
-  }, [add, clear, pendingOrderQuery.data, setCustomer, setTable]);
+    for (const item of order.items) {
+      const quantity = Number(item.quantity);
+      if (quantity <= 0) continue;
+      const price = Number(item.unitPrice);
+      const isExternal = Boolean(externalItem) && item.menuItemId === externalItem?.id;
+      add(
+        { id: item.menuItemId, name: item.itemName, category: "", price },
+        isExternal ? { lineId: nextCounterLineId(), name: item.itemName, price, quantity, isExternal: true } : { quantity },
+      );
+    }
+  }, [add, clear, externalItem, menuQuery.isPending, pendingOrderQuery.data, setCustomer, setTable]);
 
   const subtotal = useMemo(
     () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
@@ -103,7 +129,7 @@ export function PosPage({ cashier = false, waiter = false }: { cashier?: boolean
   const total = subtotal;
   const sendMutation = useMutation({
     mutationFn: async () => {
-      const order = await api.createOrder({ orderType: "DINE_IN", tableId: apiTables.find((entry) => entry.tableNumber === table)?.id, customerName: customer.trim() || undefined, items: items.map((item) => ({ menuItemId: item.id, quantity: item.quantity, notes: item.note })) });
+      const order = await api.createOrder({ orderType: "DINE_IN", tableId: apiTables.find((entry) => entry.tableNumber === table)?.id, customerName: customer.trim() || undefined, items: orderPayloadItems() });
       await api.sendOrderToKitchen(order.id);
       return order;
     },
@@ -178,7 +204,7 @@ export function PosPage({ cashier = false, waiter = false }: { cashier?: boolean
         }
         return { target: selectedBill.id, paid: applied, due: roundMoney(selectedBillDue - applied) };
       }
-      const order = orderId ? await api.order(orderId) : await api.createOrder({ orderType: "DINE_IN", tableId: apiTables.find((entry) => entry.tableNumber === table)?.id, customerName: customer.trim() || undefined, items: items.map((item) => ({ menuItemId: item.id, quantity: item.quantity, notes: item.note })) });
+      const order = orderId ? await api.order(orderId) : await api.createOrder({ orderType: "DINE_IN", tableId: apiTables.find((entry) => entry.tableNumber === table)?.id, customerName: customer.trim() || undefined, items: orderPayloadItems() });
       if (orderId && customer.trim()) await api.updateBillCustomer(order.id, customer.trim());
       const balance = balanceDue(order.totalAmount, settledTotal(order.payments));
       if (balance <= 0) throw new Error("This order is already fully paid.");
@@ -212,7 +238,10 @@ export function PosPage({ cashier = false, waiter = false }: { cashier?: boolean
     },
   });
 
-  const filteredMenu = menuItems.filter((item) => {
+  // The counter placeholder is a plumbing row, not something to tap on the grid.
+  const browsableMenu = useMemo(() => menuItems.filter((item) => !item.isExternal), [menuItems]);
+
+  const filteredMenu = browsableMenu.filter((item) => {
     const matchesCategory = category === "All" || item.category === category;
     const matchesSearch = item.name.toLowerCase().includes(search.trim().toLowerCase());
     return matchesCategory && matchesSearch;
@@ -221,15 +250,20 @@ export function PosPage({ cashier = false, waiter = false }: { cashier?: boolean
   const addManualItem = () => {
     const price = Number(manualPrice);
     if (!manualName.trim() || !Number.isFinite(price) || price <= 0) return;
+    if (!externalItem) {
+      setCounterError("This cafe is missing its counter item setup. Run the seed script, then reload.");
+      return;
+    }
 
-    add({
-      id: `manual-${Date.now()}`,
-      name: manualName.trim(),
-      category: "Manual",
-      price,
-    });
+    // Every counter line points at the same real menu row, so each one needs its
+    // own cart key to stay a separate line instead of merging with the last.
+    add(
+      { id: externalItem.id, name: externalItem.name, category: externalItem.category, price },
+      { lineId: nextCounterLineId(), name: manualName.trim(), price, isExternal: true },
+    );
     setManualName("");
     setManualPrice("");
+    setCounterError(null);
   };
 
   const error = sendMutation.error || checkoutMutation.error || billCustomerMutation.error || menuQuery.error || tablesQuery.error || pendingOrderQuery.error;
@@ -301,6 +335,7 @@ export function PosPage({ cashier = false, waiter = false }: { cashier?: boolean
           items={items}
           manualName={manualName}
           manualPrice={manualPrice}
+          counterError={counterError}
           orderId={orderId}
           paymentMethod={paymentMethod}
           onlineAmountReceived={onlineAmountReceived}

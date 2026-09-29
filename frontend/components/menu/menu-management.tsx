@@ -67,6 +67,10 @@ export function MenuManagement() {
     if (editName.trim() && editCategory && Number.isFinite(price) && price >= 0) editMutation.mutate();
   };
   const deleteItem = (item: MenuItem) => {
+    if (item.isExternal) {
+      setFormError("The counter item is required by the POS and cannot be removed.");
+      return;
+    }
     if (window.confirm(`Delete “${item.name}” from the active menu? Past bills will remain unchanged.`)) deleteMutation.mutate(item.id);
   };
 
@@ -105,7 +109,7 @@ export function MenuManagement() {
           <label className="field">Inventory product <span className="muted">(optional)</span><select onChange={(event) => setEditInventoryItemId(event.target.value)} value={editInventoryItemId}><option value="">No direct inventory link</option>{(inventoryQuery.data ?? []).filter((stockItem) => stockItem.isActive && (stockItem.id === editingItem.inventoryItemId || !items.some((menuItem) => menuItem.inventoryItemId === stockItem.id))).map((stockItem) => <option key={stockItem.id} value={stockItem.id}>{stockItem.name} · {stockItem.sku}</option>)}</select></label>
           <div className="printer-actions"><button className="btn" disabled={editMutation.isPending} type="submit">{editMutation.isPending ? "Saving…" : "Save changes"}</button><button className="btn secondary" disabled={editMutation.isPending} onClick={() => setEditingItem(null)} type="button">Cancel</button></div>
         </form>}
-        {items.length ? <div className="menu-manager-table-wrap"><table className="table"><thead><tr><th>Item</th><th>Category</th><th>Price</th><th>Actions</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td>{item.name}</td><td><span className="tag">{item.category}</span></td><td>NPR {item.price}</td><td><div className="printer-actions"><button className="btn secondary" disabled={deleteMutation.isPending} onClick={() => startEdit(item)} type="button">Edit</button><button className="btn secondary" disabled={deleteMutation.isPending} onClick={() => deleteItem(item)} type="button">Delete</button></div></td></tr>)}</tbody></table></div> : <p className="empty">No menu items yet. Add a category, then create your first menu item.</p>}
+        {items.length ? <div className="menu-manager-table-wrap"><table className="table"><thead><tr><th>Item</th><th>Category</th><th>Price</th><th>Actions</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td>{item.name}{item.isExternal && <span className="tag" style={{ marginLeft: 8 }}>System</span>}</td><td><span className="tag">{item.category}</span></td><td>{item.isExternal ? <span className="muted">Set at the till</span> : `NPR ${item.price}`}</td><td><div className="printer-actions"><button className="btn secondary" disabled={deleteMutation.isPending} onClick={() => startEdit(item)} type="button">Edit</button><button className="btn secondary" disabled={deleteMutation.isPending || item.isExternal} onClick={() => deleteItem(item)} type="button">Delete</button></div></td></tr>)}</tbody></table></div> : <p className="empty">No menu items yet. Add a category, then create your first menu item.</p>}
       </section>
     </section>
   );

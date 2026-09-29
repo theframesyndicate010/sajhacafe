@@ -4,7 +4,7 @@ export type User = { id: string; name: string; email: string; phone?: string | n
 export type ManagedUser = { id: string; name: string; email: string; phone?: string | null; isActive: boolean; memberships: { isActive: boolean; role: { id: string; name: string } }[]; createdAt?: string };
 export type ManagedRole = { id: string; name: string; description?: string | null };
 export type Category = { id: string; name: string; description?: string | null; displayOrder: number; isActive: boolean };
-export type MenuItem = { id: string; categoryId?: string; inventoryItemId?: string | null; category: string; name: string; description?: string | null; price: number; imageUrl?: string | null; isActive?: boolean };
+export type MenuItem = { id: string; categoryId?: string; inventoryItemId?: string | null; category: string; name: string; description?: string | null; price: number; imageUrl?: string | null; isActive?: boolean; isExternal?: boolean };
 export type RestaurantTable = { id: string; tableNumber: string; capacity: number; status: "AVAILABLE" | "OCCUPIED" | "RESERVED" | "OUT_OF_SERVICE"; isActive: boolean; orders?: { id: string; orderNumber: string; status: string }[] };
 export type OrderItem = { id: string; menuItemId: string; itemName: string; quantity: number | string; unitPrice: number | string; totalAmount: number | string; notes?: string | null };
 export type OrderPayment = { id: string; method: PaymentMethod; amount: number | string; referenceNumber?: string | null; status?: string };
@@ -16,7 +16,7 @@ export type InventoryItem = { id: string; name: string; sku?: string | null; uni
 export type DashboardSummary = { sales: number | string; orders: number; pendingKot: number; preparingKot: number; readyKot: number; occupiedTables: number; availableTables: number; lowStockItems: number };
 export type RestaurantSettings = { id: string; businessName: string; address?: string | null; phone?: string | null; email?: string | null; logo?: string | null; taxNumber?: string | null; currency: string; timezone: string; taxEnabled: boolean; taxRate: number | string; taxInclusive: boolean };
 export type LoginInput = { email: string; password: string; tenantId?: string };
-export type CreateOrderInput = { orderType: "DINE_IN" | "TAKEAWAY"; tableId?: string; customerId?: string; customerName?: string; items: { menuItemId: string; quantity: number; notes?: string }[]; notes?: string; discountAmount?: number };
+export type CreateOrderInput = { orderType: "DINE_IN" | "TAKEAWAY"; tableId?: string; customerId?: string; customerName?: string; items: { menuItemId: string; quantity: number; notes?: string; itemName?: string; unitPrice?: number }[]; notes?: string; discountAmount?: number };
 export type PaymentMethod = "CASH" | "CARD" | "ESEWA" | "KHALTI" | "BANK_TRANSFER" | "OTHER";
 
 function parseApiPrice(value: unknown): number {

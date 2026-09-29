@@ -20,6 +20,19 @@ export class OrderItemDto {
   @Min(0.001)
   quantity!: number;
 
+  /// Only honoured for the tenant's flagged external item, which is the
+  /// placeholder the POS uses for goods that are not in the menu. Regular
+  /// menu items are always priced from MenuItem.price.
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  itemName?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  unitPrice?: number;
+
   @IsOptional()
   @IsString()
   notes?: string;

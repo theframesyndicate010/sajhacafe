@@ -67,19 +67,7 @@ export class OrdersService {
         if (!customer) throw new BadRequestException('Customer is inactive or missing');
       }
 
-      const items = dto.items.map((input) => {
-        const menu = menuItems.find((item) => item.id === input.menuItemId)!;
-        const unitPrice = Number(menu.price);
-        return {
-          menuItemId: menu.id,
-          itemName: menu.name,
-          quantity: input.quantity,
-          unitPrice,
-          discountAmount: 0,
-          totalAmount: input.quantity * unitPrice,
-          notes: input.notes,
-        };
-      });
+      const items = dto.items.map((input) => this.resolveOrderItem(input, menuItems));
 
       const totals = calculateOrderTotals({
         items,
@@ -163,18 +151,8 @@ export class OrdersService {
         throw new BadRequestException('Order is no longer editable');
       const menu = await tx.menuItem.findFirst({ where: { id: dto.menuItemId, tenantId, isActive: true } });
       if (!menu) throw new BadRequestException('Menu item is inactive or missing');
-      const item = await tx.orderItem.create({
-        data: {
-          tenantId,
-          orderId: id,
-          menuItemId: menu.id,
-          itemName: menu.name,
-          quantity: dto.quantity,
-          unitPrice: menu.price,
-          totalAmount: Number(menu.price) * dto.quantity,
-          notes: dto.notes,
-        },
-      });
+      const { discountAmount: _discountAmount, ...item } = this.resolveOrderItem(dto, [menu]);
+      const created = await tx.orderItem.create({ data: { ...item, tenantId, orderId: id } });
       const updated = await tx.order.findFirstOrThrow({ where: { id, tenantId }, include: { items: true } });
       const totals = calculateOrderTotals({
         items: updated.items.map((line) => ({
@@ -185,7 +163,7 @@ export class OrdersService {
         taxEnabled: Number(updated.taxAmount) > 0,
       });
       await tx.order.updateMany({ where: { id, tenantId }, data: totals });
-      return item;
+      return created;
     });
   }
 
@@ -201,6 +179,48 @@ export class OrdersService {
 
   removeItem(itemId: string, tenantId: string) {
     return this.prisma.orderItem.deleteMany({ where: { id: itemId, tenantId } });
+  }
+
+  /**
+   * Turns a requested line into the row to persist. A regular menu item is
+   * always priced from MenuItem.price, so a client cannot reprice the cafe's
+   * menu. Only the tenant's flagged external placeholder accepts a typed name
+   * and price, which is how goods that are not on the menu get sold.
+   */
+  private resolveOrderItem(input: OrderItemDto, menuItems: Array<{ id: string; name: string; price: Prisma.Decimal; isExternal: boolean }>) {
+    const menu = menuItems.find((item) => item.id === input.menuItemId)!;
+    const overrides = input.itemName !== undefined || input.unitPrice !== undefined;
+
+    if (!menu.isExternal) {
+      if (overrides) {
+        throw new BadRequestException(`"${menu.name}" is a menu item and cannot be repriced. Add it as a counter item to set a custom name or price.`);
+      }
+      const unitPrice = Number(menu.price);
+      return {
+        menuItemId: menu.id,
+        itemName: menu.name,
+        quantity: input.quantity,
+        unitPrice,
+        discountAmount: 0,
+        totalAmount: input.quantity * unitPrice,
+        notes: input.notes,
+      };
+    }
+
+    const itemName = input.itemName?.trim();
+    const unitPrice = input.unitPrice;
+    if (!itemName) throw new BadRequestException('A counter item needs an item name.');
+    if (unitPrice === undefined || unitPrice <= 0) throw new BadRequestException(`"${itemName}" needs a price greater than zero.`);
+
+    return {
+      menuItemId: menu.id,
+      itemName,
+      quantity: input.quantity,
+      unitPrice,
+      discountAmount: 0,
+      totalAmount: input.quantity * unitPrice,
+      notes: input.notes,
+    };
   }
 
   private validateCreateRequest(dto: CreateOrderDto): void {

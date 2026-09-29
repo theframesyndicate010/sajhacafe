@@ -51,10 +51,22 @@ export class MenuController {
     if (dto.price !== undefined && (!Number.isFinite(dto.price) || dto.price < 0)) throw new BadRequestException('Menu item price must be a valid non-negative number');
     return this.prisma.menuItem.updateMany({ where: { id, tenantId: request.tenantId! }, data: dto });
   }
-  @Delete('menu-items/:id') @RequirePermission('menu.manage') deactivateItem(@Param('id') id: string, @Req() request: Request) {
+  @Delete('menu-items/:id') @RequirePermission('menu.manage') async deactivateItem(@Param('id') id: string, @Req() request: Request) {
+    await this.assertNotExternal(id, request.tenantId!);
     return this.prisma.menuItem.updateMany({ where: { id, tenantId: request.tenantId! }, data: { isActive: false } });
   }
-  @Patch('menu-items/:id/status') @RequirePermission('menu.manage') status(@Param('id') id: string, @Body() dto: ActiveDto, @Req() request: Request) {
+  @Patch('menu-items/:id/status') @RequirePermission('menu.manage') async status(@Param('id') id: string, @Body() dto: ActiveDto, @Req() request: Request) {
+    if (dto.isActive === false) await this.assertNotExternal(id, request.tenantId!);
     return this.prisma.menuItem.updateMany({ where: { id, tenantId: request.tenantId! }, data: { isActive: dto.isActive } });
+  }
+
+  /**
+   * The counter placeholder backs goods typed at the POS. Deactivating it would
+   * leave the POS unable to sell anything that is not on the menu, so it stays
+   * put until the flag is cleared deliberately in the database.
+   */
+  private async assertNotExternal(id: string, tenantId: string): Promise<void> {
+    const item = await this.prisma.menuItem.findFirst({ where: { id, tenantId }, select: { isExternal: true } });
+    if (item?.isExternal) throw new BadRequestException('The counter item is required by the POS and cannot be removed.');
   }
 }

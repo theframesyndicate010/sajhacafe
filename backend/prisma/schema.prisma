@@ -249,6 +249,10 @@ model MenuItem {
   inventoryItemId String?        @db.Char(36)
   imageUrl        String?        @db.Text
   isActive        Boolean        @default(true)
+  /// Placeholder row that backs counter items typed directly at the POS.
+  /// Only flagged rows accept a per-line name/price override; every other
+  /// menu item is always priced from this record.
+  isExternal      Boolean        @default(false)
   category        Category       @relation(fields: [categoryId], references: [id])
   inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
   orderItems      OrderItem[]

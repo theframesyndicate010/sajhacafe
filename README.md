@@ -60,12 +60,60 @@ The health endpoint checks the database connection. The backend must remain runn
 - Use the in-app **Install app** button where the browser supports a direct prompt. On iPhone or iPad, use the browser share menu and choose **Add to Home Screen**. Other browsers may expose **Install app** or **Add to Home Screen** from their menu; support varies by browser and operating system.
 - The service worker caches only the app shell, icons, and offline message. Orders, payments, and other cafe data always require a connection to the API.
 - Configure the XP-C2008 from **Settings → Printer settings & test**. Chrome can send ESC/POS over Bluetooth Classic SPP through Web Serial (desktop Chrome 117+, Android Chrome 138+) once the printer has been paired with the device. Bluetooth LE is a distinct BLE/GATT method and is not assumed to match the printer's Bluetooth profile.
-- Use **Thermal Print** for direct printer bytes or **System Print** for the browser/OS print dialog. WebUSB direct printing requires an unclaimed bulk interface; the OS driver and local bridge are fallbacks. See [XP-C2008 printing](docs/XP-C2008-PRINTING.md) for setup and limitations.
+- Use **Thermal Print** for direct printer bytes or **System Print** for the browser/OS print dialog. WebUSB direct printing requires an unclaimed bulk interface; the OS driver and local bridge are fallbacks. See [print-bridge/README.md](print-bridge/README.md) for the local bridge and `android-app/README.md` for the Android wrapper.
+
+## First run
+
+`docker compose up` applies migrations but does **not** create an admin account.
+Create the first one with a Node script that has the backend dependencies
+available:
+
+```bash
+cd backend
+npx tsx -e "
+import * as argon2 from 'argon2';
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
+const password = process.argv[1];
+const run = async () => {
+  const role = await prisma.role.findFirstOrThrow({ where: { name: 'ADMIN' } });
+  const tenant = await prisma.tenant.create({ data: { name: 'Sajha Cafe', slug: 'sajha-cafe' } });
+  await prisma.restaurantSettings.create({ data: { tenantId: tenant.id, businessName: 'Sajha Cafe' } });
+  const user = await prisma.user.create({
+    data: { name: 'Admin', email: 'admin@sajhacafe.test', passwordHash: await argon2.hash(password) },
+  });
+  await prisma.tenantMembership.create({ data: { tenantId: tenant.id, userId: user.id, roleId: role.id } });
+  await prisma.$disconnect();
+};
+run();
+" 'your-password-here'
+```
+
+Roles and permissions come from the `seed_roles_permissions` migration, so the
+`ADMIN` role already exists. Skip this if the cafe already has an account.
+
+Two rows back the POS counter item, which is how goods that are not on the menu
+get sold. Run once per tenant:
+
+```sql
+INSERT INTO `Category` (`id`,`tenantId`,`name`,`displayOrder`,`isActive`,`createdAt`,`updatedAt`)
+SELECT UUID(), t.`id`, 'External', 999, TRUE, NOW(3), NOW(3) FROM `Tenant` t
+WHERE NOT EXISTS (SELECT 1 FROM `Category` c WHERE c.`tenantId`=t.`id` AND c.`name`='External');
+
+INSERT INTO `MenuItem` (`id`,`tenantId`,`categoryId`,`name`,`price`,`isActive`,`isExternal`,`createdAt`,`updatedAt`)
+SELECT UUID(), t.`id`, c.`id`, 'External Item', 0, TRUE, TRUE, NOW(3), NOW(3)
+FROM `Tenant` t JOIN `Category` c ON c.`tenantId`=t.`id` AND c.`name`='External'
+WHERE NOT EXISTS (SELECT 1 FROM `MenuItem` m WHERE m.`tenantId`=t.`id` AND m.`isExternal`=TRUE);
+```
+
+Both statements are safe to re-run. The POS shows a clear message if the counter
+item is missing.
 
 ## Run everything with Docker
 
 If you would rather not install Node dependencies or MySQL locally, one command
-starts MySQL, applies migrations, seeds an admin account, and serves the app:
+starts MySQL, applies migrations, and serves the app. Create the first admin
+account with [First run](#first-run) before logging in:
 
 ```bash
 docker compose up --build
@@ -82,13 +130,10 @@ override any of them.
 | MySQL      | `127.0.0.1:3306/sajhacafe`     | user `cafe_user`, password `cafe_local_dev_pw` |
 
 The default login is `admin@sajhacafe.test` / `sajhacafe123`, and
-`SEED_DEMO_DATA` seeds six tables plus a starter menu so the POS is usable
-immediately. Change `SEED_ADMIN_PASSWORD` before exposing this anywhere real.
-
 Startup order is enforced with health checks: `migrate` waits for MySQL and runs
-`prisma migrate deploy` followed by `scripts/seed-admin.ts`, then exits; the
-backend waits for that to succeed; the frontend waits for the backend to report
-healthy. Both seeding steps are idempotent, so restarts are safe.
+`prisma migrate deploy`, then exits; the backend waits for that to succeed; the
+frontend waits for the backend to report healthy. Migrations are idempotent, so
+restarts are safe.
 
 ```bash
 docker compose up --build -d   # background
@@ -111,11 +156,7 @@ ports: `docker compose down`.
 - `backend/Dockerfile` exposes two targets. `runner` is the lean runtime image
   the `backend` service uses. `builder` carries the full dependency tree and is
   what the one-shot `migrate` service runs in, because `prisma migrate deploy`
-  needs the Prisma CLI and the seed needs `tsx` — both dev dependencies that are
-  absent from the runtime image.
-- The admin account is seeded by `backend/scripts/seed-admin.ts` rather than
-  `npm run prisma:seed`, because `prisma/seed.ts` and `prisma/seed-user.sql`
-  are both listed in `backend/.gitignore` and so are absent from a fresh clone.
+  needs the Prisma CLI — a dev dependency that is absent from the runtime image.
 
 ## Cashier and waiter bills
 
@@ -158,7 +199,7 @@ MySQL has no PostgreSQL-style row-level security. The application continues to s
 
 `GET /settings` and `PATCH /settings` upsert the tenant's `RestaurantSettings`
 row, defaulting `businessName` to the tenant name. A tenant therefore always has
-settings, even when it was not created by `scripts/seed-admin.ts`. Previously the
+settings, even when it was not created by the normal setup path. Previously the
 row was assumed to exist, so such a tenant got a `404` on load and could not
 save, because the matching `update` had no row to update.
 
@@ -183,8 +224,7 @@ are not yet exposed in any form.
 - `frontend/components/` — shared interface components
 - `frontend/lib/` — API client and auth helpers
 - `backend/src/` — NestJS API modules and services
-- `backend/scripts/seed-admin.ts` — idempotent first-run admin and demo data seed
-- `backend/prisma/` — MySQL schema, active migrations, and seed script
+- `backend/prisma/` — MySQL schema and active migrations
 - `backend/prisma/postgresql-legacy/` — archived PostgreSQL migrations and RLS reference
 - `frontend/legacy/vite/` — previous frontend retained for reference; it is not used by the active Next.js app
 - `docker-compose.yml` — MySQL, backend, and frontend for local containerised runs

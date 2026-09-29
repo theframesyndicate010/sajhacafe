@@ -17,7 +17,7 @@ export class SettingsController {
 
   /**
    * A cafe always has settings, so the row is created on first read instead of
-   * being assumed to exist. Tenants created outside `scripts/seed-admin.ts`
+   * being assumed to exist. Tenants created outside the normal setup path
    * previously had no row, which made this endpoint 404 and left the setup form
    * unable to save because the matching `update` had nothing to update.
    */

@@ -17,6 +17,7 @@ type CurrentOrderProps = {
   items: CartLine[];
   manualName: string;
   manualPrice: string;
+  counterError?: string | null;
   orderId: string | null;
   paymentMethod: string;
   onlineAmountReceived: string;
@@ -57,6 +58,7 @@ export function CurrentOrder({
   items,
   manualName,
   manualPrice,
+  counterError,
   orderId,
   paymentMethod,
   onlineAmountReceived,
@@ -134,7 +136,8 @@ export function CurrentOrder({
       </div>}
 
       {!cashierBill && !waiterMode && <div className="manual-item">
-        <strong>Manual counter item</strong>
+        <strong>Counter item</strong>
+        <p className="muted" style={{ margin: "4px 0 10px" }}>For anything not on the menu. It prints as typed and skips stock deduction.</p>
         <div className="form-row">
           <label className="field">
             Item name
@@ -160,23 +163,25 @@ export function CurrentOrder({
             Add item
           </button>
         </div>
+        {counterError && <p className="error" role="alert">{counterError}</p>}
       </div>}
 
       {cashierBill && cashierBill.items.length > 0 && <div className="cashier-existing-items"><strong>Already on bill</strong>{cashierBill.items.map((item) => <div className="order-row" key={item.id}><span>{item.itemName} × {item.quantity}</span><strong>NPR {Number(item.totalAmount).toLocaleString()}</strong></div>)}</div>}
 
       {cashierBill && hasItems && <strong className="cashier-additions-heading">New items</strong>}
       {items.map((item) => (
-        <div className="order-row" key={item.id}>
+        <div className="order-row" key={item.lineId}>
           <div>
             <strong>{item.name}</strong>
+            {item.isExternal && <span className="tag" style={{ marginLeft: 8 }}>Counter</span>}
             <br />
             <small className="muted">NPR {item.price} each</small>
-            {waiterMode && <input aria-label={`Note for ${item.name}`} className="waiter-note-input" onChange={(event) => onNoteChange?.(item.id, event.target.value)} placeholder="Add item note" value={item.note ?? ""} />}
+            {waiterMode && <input aria-label={`Note for ${item.name}`} className="waiter-note-input" onChange={(event) => onNoteChange?.(item.lineId, event.target.value)} placeholder="Add item note" value={item.note ?? ""} />}
           </div>
           <div className="qty">
-            <button onClick={() => onQuantityChange(item.id, -1)} type="button">−</button>
+            <button onClick={() => onQuantityChange(item.lineId, -1)} type="button">−</button>
             <span>{item.quantity}</span>
-            <button onClick={() => onQuantityChange(item.id, 1)} type="button">+</button>
+            <button onClick={() => onQuantityChange(item.lineId, 1)} type="button">+</button>
           </div>
         </div>
       ))}
