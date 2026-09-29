@@ -5,6 +5,7 @@ type MenuSelectionProps = {
   category: string;
   search: string;
   items: MenuItem[];
+  cashier?: boolean;
   mobileShowMore: boolean;
   showAllMobileItems: boolean;
   onAddItem: (item: MenuItem) => void;
@@ -18,6 +19,7 @@ export function MenuSelection({
   category,
   search,
   items,
+  cashier = false,
   mobileShowMore,
   showAllMobileItems,
   onAddItem,
@@ -52,7 +54,7 @@ export function MenuSelection({
       {items.length ? (
         <>
           <div className={`menu-grid ${showAllMobileItems ? "show-all-mobile" : ""}`} id="pos-menu-items">
-            {items.map((item) => (
+            {items.slice(0, cashier && !showAllMobileItems ? 4 : undefined).map((item) => (
               <button className="menu-item" key={item.id} onClick={() => onAddItem(item)} type="button">
                 <strong>{item.name}</strong>
                 <span className="muted" style={{ display: "block", marginTop: 10 }}>
@@ -61,7 +63,7 @@ export function MenuSelection({
               </button>
             ))}
           </div>
-          {mobileShowMore && items.length > 4 && <button
+          {(cashier || mobileShowMore) && items.length > 4 && <button
             aria-controls="pos-menu-items"
             aria-expanded={showAllMobileItems}
             className="pos-show-more"

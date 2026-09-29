@@ -165,6 +165,8 @@
 .waiter-closed-check { top: 14px; display: grid; place-items: center; }
 .bill-printed-check { position: absolute; top: 12px; right: 14px; display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; background: #dcfce7; color: #15803d !important; font-size: 19px !important; font-weight: 800; }
 .waiter-bill-card:hover { transform: translateY(-2px); box-shadow: 0 12px 26px #34445a14; }
+.waiter-bill-card.table-closed { border-color: #b8dfc4; background: #effaf2; }
+.waiter-bill-card.table-closed:hover { background: #e8f7ec; }
 .waiter-bill-card h2 { margin: 4px 0 0; }
 .waiter-bill-card > span:not(.waiter-view-bill) { color: #6c7b91; font-size: 13px; }
 .waiter-bill-card strong { font-size: 20px; }

@@ -9,6 +9,7 @@ import { api } from "@/lib/api/client";
 
 export function BillsArchive() {
   const pathname = usePathname();
+  const cashierView = pathname.startsWith("/cashier");
   const queryClient = useQueryClient();
   const canManageBills = pathname === "/bills";
   const [search, setSearch] = useState("");
@@ -35,16 +36,16 @@ export function BillsArchive() {
     const text = `${bill.billNumber} ${bill.table?.tableNumber ?? ""} ${bill.customer?.name ?? ""}`.toLowerCase();
     const date = bill.createdAt.slice(0, 10);
     return (!search.trim() || text.includes(search.trim().toLowerCase()))
-      && (paymentFilter === "ALL" || (paymentFilter === "PAID" ? bill.paymentStatus === "PAID" : bill.paymentStatus !== "PAID"))
+      && (cashierView ? bill.paymentStatus === "PAID" : paymentFilter === "ALL" || (paymentFilter === "PAID" ? bill.paymentStatus === "PAID" : bill.paymentStatus !== "PAID"))
       && (!dateFrom || date >= dateFrom) && (!dateTo || date <= dateTo);
   });
   const actionError = editMutation.error ?? deleteMutation.error;
 
   return <section className="bills-archive">
-    <header className="bills-archive-heading"><div><p className="eyebrow">SALES RECORDS</p><h1>Bills</h1><p>Table orders remain together until their bill is settled.</p></div><strong>{bills.length} bill{bills.length === 1 ? "" : "s"}</strong></header>
+    <header className="bills-archive-heading"><div><p className="eyebrow">SALES RECORDS</p><h1>Bills</h1><p>{cashierView ? "Settled bill history. Outstanding balances are listed under Due Payments." : "Table orders remain together until their bill is settled."}</p></div><strong>{bills.length} bill{bills.length === 1 ? "" : "s"}</strong></header>
     <div className="bills-archive-filters" role="search" aria-label="Filter bills">
       <label>Search<input onChange={(event) => setSearch(event.target.value)} placeholder="Bill, table, or customer" value={search} /></label>
-      <label>Payment status<select onChange={(event) => setPaymentFilter(event.target.value)} value={paymentFilter}><option value="ALL">All bills</option><option value="PAID">Paid</option><option value="DUE">Balance due</option></select></label>
+      {!cashierView && <label>Payment status<select onChange={(event) => setPaymentFilter(event.target.value)} value={paymentFilter}><option value="ALL">All bills</option><option value="PAID">Paid</option><option value="DUE">Balance due</option></select></label>}
       <label>From<input onChange={(event) => setDateFrom(event.target.value)} type="date" value={dateFrom} /></label>
       <label>To<input onChange={(event) => setDateTo(event.target.value)} type="date" value={dateTo} /></label>
     </div>

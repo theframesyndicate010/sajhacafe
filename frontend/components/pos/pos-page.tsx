@@ -279,6 +279,7 @@ export function PosPage({ cashier = false, waiter = false }: { cashier?: boolean
         <MenuSelection
           categories={["All", ...menuCategories]}
           category={category}
+          cashier={cashier}
           items={filteredMenu}
           mobileShowMore
           search={search}
