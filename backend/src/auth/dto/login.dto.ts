@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
 export class LoginDto {
   @IsEmail()
   email!: string;
@@ -10,4 +10,8 @@ export class LoginDto {
   @IsOptional()
   @IsUUID()
   tenantId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  rememberMe?: boolean;
 }

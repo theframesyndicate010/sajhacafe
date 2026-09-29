@@ -15,7 +15,7 @@ export type KitchenOrder = { id: string; kotNumber: string; status: "PENDING" | 
 export type InventoryItem = { id: string; name: string; sku?: string | null; unit: string; currentQuantity: number | string; minimumQuantity: number | string; costPrice: number | string; isActive: boolean };
 export type DashboardSummary = { sales: number | string; orders: number; pendingKot: number; preparingKot: number; readyKot: number; occupiedTables: number; availableTables: number; lowStockItems: number };
 export type RestaurantSettings = { id: string; businessName: string; address?: string | null; phone?: string | null; email?: string | null; logo?: string | null; taxNumber?: string | null; currency: string; timezone: string; taxEnabled: boolean; taxRate: number | string; taxInclusive: boolean };
-export type LoginInput = { email: string; password: string; tenantId?: string };
+export type LoginInput = { email: string; password: string; tenantId?: string; rememberMe?: boolean };
 export type CreateOrderInput = { orderType: "DINE_IN" | "TAKEAWAY"; tableId?: string; customerId?: string; customerName?: string; items: { menuItemId: string; quantity: number; notes?: string }[]; notes?: string; discountAmount?: number };
 export type PaymentMethod = "CASH" | "CARD" | "ESEWA" | "KHALTI" | "BANK_TRANSFER" | "OTHER";
 

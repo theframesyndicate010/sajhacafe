@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type Order } from "@/lib/api/client";
+import { useWaiterRecentEntries } from "@/lib/use-waiter-retention";
 
 const filters = ["All", "SENT_TO_KITCHEN", "PREPARING", "READY", "SERVED"] as const;
 const labels: Record<typeof filters[number], string> = { All: "All", SENT_TO_KITCHEN: "Sent to kitchen", PREPARING: "Cooking", READY: "Ready", SERVED: "Served" };
@@ -13,7 +14,8 @@ export default function OrdersPage() {
   const [filter, setFilter] = useState<(typeof filters)[number]>("All");
   const query = useQuery({ queryKey: ["orders"], queryFn: () => api.orders() });
   const mutation = useMutation({ mutationFn: (id: string) => api.serveOrder(id), onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["orders"] }); } });
-  const orders = (query.data ?? []).filter((order) => order.status !== "CANCELLED" && (filter === "All" || order.status === filter));
+  const recentOrders = useWaiterRecentEntries(query.data ?? []);
+  const orders = recentOrders.filter((order) => order.status !== "CANCELLED" && (filter === "All" || order.status === filter));
   return (
     <div className="waiter-page">
       <p className="eyebrow">SERVICE QUEUE</p><h1>My Orders</h1><p className="muted">Update tenant order progress and open persisted receipts.</p>

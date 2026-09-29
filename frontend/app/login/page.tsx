@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { Eye, EyeOff } from "lucide-react";
 import { OrganizationFooter } from "@/components/common/organization-footer";
 import { api } from "@/lib/api/client";
 import { authQueryKey, getWorkspacePath } from "@/lib/auth";
@@ -13,6 +14,7 @@ import { useQueryClient } from "@tanstack/react-query";
 const loginSchema = z.object({
   email: z.string().email("Enter a valid email"),
   password: z.string().min(8, "Password must be at least 8 characters"),
+  rememberMe: z.boolean(),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
@@ -21,11 +23,12 @@ export default function LoginPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [serverError, setServerError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
+  } = useForm<LoginForm>({ resolver: zodResolver(loginSchema), defaultValues: { rememberMe: false } });
 
   async function submitLogin(values: LoginForm) {
     setServerError("");
@@ -41,7 +44,10 @@ export default function LoginPage() {
 
   return (
     <main className="login">
+      <div className="login-content">
+      <img className="login-brand-image" src="/frame.jpeg" alt="The Frame Syndicate" />
       <form className="login-card" method="post" onSubmit={handleSubmit(submitLogin)}>
+        <p className="login-brand-name">Sajha Cafe</p>
         <h1 className="page-title">Welcome back</h1>
         <p className="muted">Sign in to manage your cafe.</p>
 
@@ -53,8 +59,18 @@ export default function LoginPage() {
 
         <label className="field">
           Password
-          <input autoComplete="current-password" type="password" {...register("password")} />
+          <span className="login-password-control">
+            <input autoComplete="current-password" type={showPassword ? "text" : "password"} {...register("password")} />
+            <button aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} className="login-password-toggle" onClick={() => setShowPassword((visible) => !visible)} type="button">
+              {showPassword ? <EyeOff aria-hidden="true" size={19} /> : <Eye aria-hidden="true" size={19} />}
+            </button>
+          </span>
           {errors.password && <span className="error">{errors.password.message}</span>}
+        </label>
+
+        <label className="login-remember">
+          <input type="checkbox" {...register("rememberMe")} />
+          <span>Remember me</span>
         </label>
 
         {serverError && <p className="error">{serverError}</p>}
@@ -64,6 +80,7 @@ export default function LoginPage() {
         </button>
 
       </form>
+      </div>
       <OrganizationFooter />
     </main>
   );

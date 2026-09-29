@@ -976,8 +976,8 @@
   .cafe-page .pos .menu-grid,
   .cashier-main .pos .menu-grid,
   .waiter-pos-shell .pos .menu-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 9px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
   }
 
   .cafe-page .pos .menu-grid:not(.show-all-mobile) > .menu-item:nth-child(n + 5),
@@ -1008,9 +1008,24 @@
   .cashier-main .pos .menu-item,
   .waiter-pos-shell .pos .menu-item {
     min-width: 0;
-    min-height: 82px;
-    padding: 12px;
+    min-height: 68px;
+    padding: 8px;
     overflow-wrap: anywhere;
+  }
+
+  .cafe-page .pos .menu-item > strong,
+  .cashier-main .pos .menu-item > strong,
+  .waiter-pos-shell .pos .menu-item > strong {
+    font-size: 0.85rem;
+    line-height: 1.2;
+  }
+
+  .cafe-page .pos .menu-item > span,
+  .cashier-main .pos .menu-item > span,
+  .waiter-pos-shell .pos .menu-item > span {
+    margin-top: 6px !important;
+    font-size: 0.78rem;
+    line-height: 1.2;
   }
 
   .cafe-page .pos .order,
@@ -1179,8 +1194,12 @@
 .organization-settings-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .organization-settings-saved { margin: 4px 0; padding: 10px 12px; border: 1px solid #a7dfbf; border-radius: 8px; color: #17633d; background: #edfbf2; font-size: 13px; font-weight: 650; }
 .organization-powered-footer { flex: 0 0 auto; padding: 10px 16px; color: var(--text-muted); font-size: 11px; text-align: center; }
+.organization-powered-footer-inner { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.organization-footer-logo { display: block; width: 28px; height: 28px; flex-shrink: 0; }
+.organization-footer-text { line-height: 1.4; }
 .login { grid-template-rows: 1fr auto; }
 .login .organization-powered-footer { color: #e2e8f0; }
+@media (max-width: 480px) { .organization-powered-footer-inner { gap: 6px; } .organization-footer-logo { width: 22px; height: 22px; } .organization-footer-text { font-size: 10px; } }
 @media print { .organization-powered-footer { display: none !important; } }
 @media (max-width: 700px) {
   .sales-report-heading { align-items: flex-start; flex-direction: column; }
@@ -1328,4 +1347,29 @@ table th {
 @media (max-width: 560px) {
   .pwa-install-trigger { right: 12px; bottom: 12px; min-height: 40px; }
   .pwa-install-dialog { padding: 22px 18px; }
+}
+
+.login-password-control { display:flex; align-items:center; border:1px solid #bcc9d8; border-radius:8px; background:#fff; }
+.login-password-control input { width:100%; min-width:0; border:0 !important; outline:0; background:transparent; }
+.login-password-control:focus-within { border-color:#7aa0d6; box-shadow:0 0 0 2px #7aa0d622; }
+.login-password-toggle { display:grid; flex:0 0 40px; width:40px; height:38px; place-items:center; border:0; border-radius:7px; color:#64748b; background:transparent; cursor:pointer; }
+.login-password-toggle:hover { color:#1e3a8a; background:#f1f5f9; }
+.login-remember { display:flex; align-items:center; gap:8px; margin:12px 0 18px; color:#334155; font-size:13px; font-weight:600; cursor:pointer; }
+.login-remember input { width:16px; height:16px; margin:0; accent-color:#1e40af; }
+.login-content { display:grid; width:min(900px,100%); grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; overflow:hidden; border-radius:16px; background:#fff; box-shadow:0 15px 35px rgba(13,27,74,.25); }
+.login-brand-image { display:block; width:100%; height:100%; min-height:100%; box-sizing:border-box; padding:20px; object-fit:contain; background:#fff; }
+.login-content .login-card { width:min(400px,100%); justify-self:center; align-self:center; border-radius:0; box-shadow:none; }
+.login-brand-name { margin:0 0 8px; color:var(--primary-blue); font-size:13px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
+
+@media (max-width: 700px) {
+  .login { padding:14px; }
+  .login-content { width:min(420px,100%); grid-template-columns:minmax(0,1fr); }
+  .login-brand-image { height:112px; min-height:0; padding:8px; background:#f8fafc; }
+  .login-content .login-card { padding:24px; }
+}
+
+@media (max-width: 380px) {
+  .login { padding:10px; }
+  .login-brand-image { height:92px; }
+  .login-content .login-card { padding:20px; }
 }
