@@ -3,7 +3,7 @@ import { browserPrintAdapter } from "./browser-print";
 import { connectPrintBridge, testThermalPrinter, thermalPrint } from "./bridge-client";
 import { isAndroidBrowser } from "./config";
 import { readAndroidNativePrinter, saveAndroidNativePrinter, clearAndroidNativePrinter } from "./android-device-printer";
-import { connectWebBluetooth, connectWebSerialBluetooth, connectWebUsb, disconnectWebBluetooth, disconnectWebSerialBluetooth, disconnectWebUsb, isWebBluetoothConnected, isWebSerialBluetoothConnected, isWebUsbConnected } from "./web-printer";
+import { connectWebBluetooth, connectWebSerialBluetooth, connectWebUsb, disconnectWebBluetooth, disconnectWebSerialBluetooth, disconnectWebUsb, isWebBluetoothConnected, isWebSerialBluetoothConnected, isWebUsbConnected, reconnectAuthorizedWebBluetooth } from "./web-printer";
 import { sampleReceipt, testReceipt } from "./sample-receipts";
 import type { PrinterConfig, ReceiptData } from "./types";
 
@@ -41,7 +41,7 @@ export class PrinterManager {
     }
     let selected: { id: string; name: string } | undefined;
     if (resolved.connection === "USB") selected = await connectWebUsb();
-    else if (resolved.connection === "WEB_BLUETOOTH") selected = await connectWebBluetooth();
+    else if (resolved.connection === "WEB_BLUETOOTH") selected = await connectWebBluetooth(resolved.id);
     else if (resolved.connection === "WEB_SERIAL") {
       selected = await connectWebSerialBluetooth();
       return { status: "ready", message: "This phone is paired and the printer's SPP connection was verified. The phone connects only while sending each print job.", ...selected };
@@ -89,6 +89,12 @@ export class PrinterManager {
     }
     if (resolved.connection === "BLUETOOTH" && hasAndroidPrintBridge()) return Boolean((await androidPrinterStatus() as { connected?: boolean }).connected);
     return false;
+  }
+
+  async reconnectAuthorizedPrinter(config: PrinterConfig) {
+    const resolved = this.resolveNativeConfig(config);
+    if (resolved.connection !== "WEB_BLUETOOTH") return undefined;
+    return reconnectAuthorizedWebBluetooth(resolved.id);
   }
 
   async printReceipt(receipt: ReceiptData, config: PrinterConfig, onAfterSystemPrint?: () => void) {

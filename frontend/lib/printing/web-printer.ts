@@ -72,15 +72,42 @@ export async function disconnectWebUsb() {
 }
 export function isWebUsbConnected() { return Boolean(usbDevice?.opened && usbEndpoint); }
 
-export async function connectWebBluetooth() {
+async function connectBleDevice(device: BleDevice) {
+  bleDevice = device;
+  if (!device.gatt) throw new Error("This printer does not expose BLE GATT. Bluetooth Classic SPP requires Web Serial, the Android app, or the local bridge.");
+  bleServer = await withTimeout(device.gatt.connect(), 20000, "Bluetooth connection timed out. Check the printer is powered on and paired.");
+  bleWriter = await findWritableCharacteristic(bleServer);
+  if (!bleWriter) throw new Error("The selected BLE device has no writable GATT characteristic. Generic ESC/POS-over-BLE cannot be assumed for this printer.");
+  return { id: device.id, name: device.name || "Bluetooth LE printer" };
+}
+
+function findAuthorizedBleDevice(devices: BleDevice[], preferredId: string) {
+  return devices.find(device => preferredId !== "default" && device.id === preferredId)
+    ?? (preferredId === "default" && devices.length === 1 ? devices[0] : undefined);
+}
+
+export async function reconnectAuthorizedWebBluetooth(preferredId = "default") {
+  const bluetooth = nav().bluetooth;
+  if (!bluetooth?.getDevices) return undefined;
+  try {
+    const devices = await bluetooth.getDevices();
+    const device = findAuthorizedBleDevice(devices, preferredId);
+    if (!device) return undefined;
+    return await connectBleDevice(device);
+  } catch {
+    bleDevice?.gatt?.disconnect(); bleDevice = undefined; bleServer = undefined; bleWriter = undefined;
+    return undefined;
+  }
+}
+
+export async function connectWebBluetooth(preferredId = "default") {
   if (!nav().bluetooth) throw new Error("Web Bluetooth is not supported by this browser/device. Use Chrome over HTTPS, Bluetooth SPP, or the Android app.");
   try {
-    bleDevice = await nav().bluetooth!.requestDevice({ acceptAllDevices: true, optionalServices: [0x1800, 0x1801, 0x180a, 0x18f0, 0xffe0] });
-    if (!bleDevice.gatt) throw new Error("This printer does not expose BLE GATT. Bluetooth Classic SPP requires Web Serial, the Android app, or the local bridge.");
-    bleServer = await withTimeout(bleDevice.gatt.connect(), 20000, "Bluetooth connection timed out. Check the printer is powered on and paired.");
-    bleWriter = await findWritableCharacteristic(bleServer);
-    if (!bleWriter) throw new Error("The selected BLE device has no writable GATT characteristic. Generic ESC/POS-over-BLE cannot be assumed for this printer.");
-    return { id: bleDevice.id, name: bleDevice.name || "Bluetooth LE printer" };
+    let devices: BleDevice[] = [];
+    try { devices = await nav().bluetooth!.getDevices?.() ?? []; } catch { /* Fall back to the browser's user-approved device picker. */ }
+    const device = findAuthorizedBleDevice(devices, preferredId)
+      ?? await nav().bluetooth!.requestDevice({ acceptAllDevices: true, optionalServices: [0x1800, 0x1801, 0x180a, 0xffe0] });
+    return await connectBleDevice(device);
   } catch (error) {
     bleDevice?.gatt?.disconnect(); bleDevice = undefined; bleServer = undefined; bleWriter = undefined;
     throw friendly(error, "Bluetooth LE");
