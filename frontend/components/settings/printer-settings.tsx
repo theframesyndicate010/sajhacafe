@@ -23,7 +23,7 @@ export function PrinterSettings() {
     const saved = readPrinterConfig();
     const native = hasAndroidPrintBridge();
     const androidPwa = isAndroidBrowser() && !native;
-    const preferredConnection: PrinterConfig["connection"] = native ? "BLUETOOTH" : androidPwa ? "BROWSER" : saved.connection;
+    const preferredConnection: PrinterConfig["connection"] = native ? "BLUETOOTH" : androidPwa ? "WEB_BLUETOOTH" : saved.connection;
     const initial = native && saved.connection !== "BROWSER" ? { ...saved, connection: "BLUETOOTH" as const } : androidPwa && ["LOCAL_USB", "BLUETOOTH", "NETWORK", "WEB_SERIAL", "USB"].includes(saved.connection) ? { ...saved, connection: preferredConnection, endpoint: "", token: "" } : { ...saved, connection: preferredConnection };
     setConfig(initial);
     setAndroidMode(native);

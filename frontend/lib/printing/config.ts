@@ -32,7 +32,13 @@ export function readPrinterConfig(): PrinterConfig {
       && stored.id === "default"
       && stored.name === "XP-C2008"
       && stored.model === "XP-C2008";
-    if (isLegacyDefaultUsb) {
+    const isLegacyAndroidBrowserDefault = isAndroidBrowser()
+      && !(typeof window !== "undefined" && (window as NativeWindow).SajhaNative)
+      && stored.connection === "BROWSER"
+      && stored.id === "default"
+      && stored.name === "XP-C2008"
+      && stored.model === "XP-C2008";
+    if (isLegacyDefaultUsb || isLegacyAndroidBrowserDefault) {
       const upgraded = sanitizePrinterConfig({ ...DEFAULT_PRINTER_CONFIG, ...stored, connection: "WEB_BLUETOOTH" });
       localStorage.setItem(KEY, JSON.stringify(upgraded));
       return upgraded;
