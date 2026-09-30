@@ -23,6 +23,21 @@ export function sanitizePrinterConfig(config: PrinterConfig): PrinterConfig {
 
 export function readPrinterConfig(): PrinterConfig {
   if (typeof window === "undefined") return DEFAULT_PRINTER_CONFIG;
-  try { return sanitizePrinterConfig(JSON.parse(localStorage.getItem(KEY) ?? "{}")); } catch { return sanitizePrinterConfig(DEFAULT_PRINTER_CONFIG); }
+  try {
+    const stored = JSON.parse(localStorage.getItem(KEY) ?? "{}") as Partial<PrinterConfig>;
+    // Before Bluetooth LE became the default, a fresh setup could persist the
+    // generic USB config. Upgrade only that untouched placeholder; a connected
+    // printer has a device-specific ID and keeps its saved connection method.
+    const isLegacyDefaultUsb = stored.connection === "USB"
+      && stored.id === "default"
+      && stored.name === "XP-C2008"
+      && stored.model === "XP-C2008";
+    if (isLegacyDefaultUsb) {
+      const upgraded = sanitizePrinterConfig({ ...DEFAULT_PRINTER_CONFIG, ...stored, connection: "WEB_BLUETOOTH" });
+      localStorage.setItem(KEY, JSON.stringify(upgraded));
+      return upgraded;
+    }
+    return sanitizePrinterConfig({ ...DEFAULT_PRINTER_CONFIG, ...stored } as PrinterConfig);
+  } catch { return sanitizePrinterConfig(DEFAULT_PRINTER_CONFIG); }
 }
 export function savePrinterConfig(config: PrinterConfig) { localStorage.setItem(KEY, JSON.stringify(sanitizePrinterConfig(config))); }
