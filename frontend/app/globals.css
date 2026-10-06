@@ -384,6 +384,21 @@
   min-width: 0;
 }
 
+.menu-manager-search {
+  min-width: 230px;
+  margin: 0;
+}
+
+.menu-manager-search input {
+  width: 100%;
+  min-height: 40px;
+}
+
+.menu-manager-results {
+  margin: 10px 0 0;
+  font-size: 13px;
+}
+
 .menu-manager-table-wrap {
   overflow-x: auto;
 }
@@ -400,6 +415,15 @@
 
   .menu-manager {
     gap: 14px;
+  }
+
+  .menu-manager-list-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .menu-manager-search {
+    min-width: 0;
   }
 }
 
@@ -1112,29 +1136,7 @@
     gap: 7px;
   }
 
-  .cafe-page .pos .menu-grid:not(.show-all-mobile) > .menu-item:nth-child(n + 5),
-  .cashier-main .pos .menu-grid:not(.show-all-mobile) > .menu-item:nth-child(n + 5),
-  .waiter-pos-shell .pos .menu-grid:not(.show-all-mobile) > .menu-item:nth-child(n + 5) {
-    display: none;
-  }
-
-  .cafe-page .pos .pos-show-more,
-  .cashier-main .pos .pos-show-more,
-  .waiter-pos-shell .pos .pos-show-more {
-    display: inline-flex;
-    min-height: 40px;
-    align-items: center;
-    justify-content: center;
-    margin-top: 10px;
-    padding: 8px 14px;
-    border: 1px solid var(--border-color);
-    border-radius: 9px;
-    color: var(--primary-blue);
-    background: var(--card-bg);
-    font: inherit;
-    font-weight: 700;
-    cursor: pointer;
-  }
+  /* MenuSelection slices the grid in JS, so there is no CSS-side item cap. */
 
   .cafe-page .pos .menu-item,
   .cashier-main .pos .menu-item,
@@ -1209,11 +1211,9 @@
   }
 }
 
+/* "Show more" toggles for the menu grid and the category tabs. Both render at
+   every screen size and in every panel, matching the caps they reveal. */
 .pos-show-more {
-  display: none;
-}
-
-.cashier-main .pos .pos-show-more {
   display: inline-flex;
   min-height: 40px;
   align-items: center;
@@ -1227,6 +1227,17 @@
   font: inherit;
   font-weight: 700;
   cursor: pointer;
+}
+
+/* The category toggle sits inside the tab row, so it is shaped like the tab
+   pills beside it rather than like the full-width button under the grid. */
+.pos .tabs .pos-show-more {
+  margin-top: 0;
+  padding: 7px 12px;
+  border-style: dashed;
+  border-radius: 20px;
+  background: #f8fafc;
+  font-size: 0.82rem;
 }
 
 .bills-archive { display: grid; min-width: 0; max-width: 100%; gap: 20px; }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type MenuItem } from "@/lib/api/client";
 
@@ -22,6 +22,14 @@ export function MenuManagement() {
   const [editPrice, setEditPrice] = useState("");
   const [editInventoryItemId, setEditInventoryItemId] = useState("");
   const [formError, setFormError] = useState("");
+  const [itemSearch, setItemSearch] = useState("");
+  const itemQuery = itemSearch.trim().toLowerCase();
+  const filteredItems = useMemo(() => {
+    if (!itemQuery) return items;
+    return items.filter(
+      (item) => item.name.toLowerCase().includes(itemQuery) || item.category.toLowerCase().includes(itemQuery),
+    );
+  }, [itemQuery, items]);
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ["categories"] });
     void queryClient.invalidateQueries({ queryKey: ["menu-items"] });
@@ -98,7 +106,10 @@ export function MenuManagement() {
       {formError && <p className="error" role="alert">{formError}</p>}
       {(categoriesQuery.error || itemsQuery.error) && <p className="error" role="alert">Unable to load the active cafe menu.</p>}
       <section className="card menu-manager-list">
-        <div className="menu-manager-list-heading"><div><h2>Menu items</h2><p className="muted">{items.length} {items.length === 1 ? "item" : "items"} across {categories.length} {categories.length === 1 ? "category" : "categories"}</p></div></div>
+        <div className="menu-manager-list-heading"><div><h2>Menu items</h2><p className="muted">{items.length} {items.length === 1 ? "item" : "items"} across {categories.length} {categories.length === 1 ? "category" : "categories"}</p></div>
+          <label className="field menu-manager-search">Search menu<input autoComplete="off" onChange={(event) => setItemSearch(event.target.value)} placeholder="Search by item or category" type="search" value={itemSearch} /></label>
+        </div>
+        {itemQuery && <p className="muted menu-manager-results" role="status">Showing {filteredItems.length} of {items.length} matching “{itemSearch.trim()}”.</p>}
         {editingItem && <form className="card menu-manager-form" onSubmit={saveEdit}>
           <h2>Edit menu item</h2>
           <label className="field">Item name<input autoComplete="off" onChange={(event) => setEditName(event.target.value)} required value={editName} /></label>
@@ -109,7 +120,7 @@ export function MenuManagement() {
           <label className="field">Inventory product <span className="muted">(optional)</span><select onChange={(event) => setEditInventoryItemId(event.target.value)} value={editInventoryItemId}><option value="">No direct inventory link</option>{(inventoryQuery.data ?? []).filter((stockItem) => stockItem.isActive && (stockItem.id === editingItem.inventoryItemId || !items.some((menuItem) => menuItem.inventoryItemId === stockItem.id))).map((stockItem) => <option key={stockItem.id} value={stockItem.id}>{stockItem.name} · {stockItem.sku}</option>)}</select></label>
           <div className="printer-actions"><button className="btn" disabled={editMutation.isPending} type="submit">{editMutation.isPending ? "Saving…" : "Save changes"}</button><button className="btn secondary" disabled={editMutation.isPending} onClick={() => setEditingItem(null)} type="button">Cancel</button></div>
         </form>}
-        {items.length ? <div className="menu-manager-table-wrap"><table className="table"><thead><tr><th>Item</th><th>Category</th><th>Price</th><th>Actions</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td>{item.name}{item.isExternal && <span className="tag" style={{ marginLeft: 8 }}>System</span>}</td><td><span className="tag">{item.category}</span></td><td>{item.isExternal ? <span className="muted">Set at the till</span> : `NPR ${item.price}`}</td><td><div className="printer-actions"><button className="btn secondary" disabled={deleteMutation.isPending} onClick={() => startEdit(item)} type="button">Edit</button><button className="btn secondary" disabled={deleteMutation.isPending || item.isExternal} onClick={() => deleteItem(item)} type="button">Delete</button></div></td></tr>)}</tbody></table></div> : <p className="empty">No menu items yet. Add a category, then create your first menu item.</p>}
+        {filteredItems.length ? <div className="menu-manager-table-wrap"><table className="table"><thead><tr><th>Item</th><th>Category</th><th>Price</th><th>Actions</th></tr></thead><tbody>{filteredItems.map((item) => <tr key={item.id}><td>{item.name}{item.isExternal && <span className="tag" style={{ marginLeft: 8 }}>System</span>}</td><td><span className="tag">{item.category}</span></td><td>{item.isExternal ? <span className="muted">Set at the till</span> : `NPR ${item.price}`}</td><td><div className="printer-actions"><button className="btn secondary" disabled={deleteMutation.isPending} onClick={() => startEdit(item)} type="button">Edit</button><button className="btn secondary" disabled={deleteMutation.isPending || item.isExternal} onClick={() => deleteItem(item)} type="button">Delete</button></div></td></tr>)}</tbody></table></div> : <p className="empty">{itemQuery ? `No menu items match “${itemSearch.trim()}”.` : "No menu items yet. Add a category, then create your first menu item."}</p>}
       </section>
     </section>
   );

@@ -23,7 +23,8 @@ export function PosPage({ cashier = false, waiter = false }: { cashier?: boolean
   const [selectedBillId, setSelectedBillId] = useState(initialBillId);
   const [category, setCategory] = useState("All");
   const [search, setSearch] = useState("");
-  const [showAllMenuMobile, setShowAllMenuMobile] = useState(false);
+  const [showAllItems, setShowAllItems] = useState(false);
+  const [showAllCategories, setShowAllCategories] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [amountReceived, setAmountReceived] = useState("");
   const [onlinePaymentMethod, setOnlinePaymentMethod] = useState("eSewa");
@@ -313,15 +314,18 @@ export function PosPage({ cashier = false, waiter = false }: { cashier?: boolean
         <MenuSelection
           categories={["All", ...menuCategories]}
           category={category}
-          cashier={cashier}
           items={filteredMenu}
-          mobileShowMore
           search={search}
-          showAllMobileItems={showAllMenuMobile}
+          showAllCategories={showAllCategories}
+          showAllItems={showAllItems}
           onAddItem={(item) => { if (waiter) setOrderId(null); add(item); }}
-          onCategoryChange={(value) => { setCategory(value); setShowAllMenuMobile(false); }}
-          onSearchChange={(value) => { setSearch(value); setShowAllMenuMobile(false); }}
-          onToggleMobileItems={() => setShowAllMenuMobile((showAll) => !showAll)}
+          // Picking a category narrows the grid, so the item cap re-engages. The
+          // tab row stays expanded: the user opened it deliberately, and the tab
+          // they just tapped must not scroll out of view.
+          onCategoryChange={(value) => { setCategory(value); setShowAllItems(false); }}
+          onSearchChange={(value) => { setSearch(value); setShowAllItems(false); }}
+          onToggleCategories={() => setShowAllCategories((showAll) => !showAll)}
+          onToggleItems={() => setShowAllItems((showAll) => !showAll)}
         />
 
         <CurrentOrder

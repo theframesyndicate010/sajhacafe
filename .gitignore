@@ -29,3 +29,4 @@ docker-compose.yml
 .env
 .env.*
 !.env.example
+need-fix.md
