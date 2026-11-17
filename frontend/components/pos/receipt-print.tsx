@@ -39,12 +39,12 @@ export function ReceiptPrint({ receiptId }: { receiptId: string }) {
   const updateThermalState = useCallback((state: PrintState, error?: string) => {
     setThermalState(state);
     setThermalError(error ?? "");
-    if (state === "printed" && order) {
+    if (state === "printed" && order && !isWaiter) {
       void api.markBillPrinted(receiptId, order.updatedAt)
         .then(() => queryClient.invalidateQueries({ queryKey: ["bills"] }))
         .catch((reason) => console.error("Unable to save thermally printed bill status", reason));
     }
-  }, [order, queryClient, receiptId]);
+  }, [isWaiter, order, queryClient, receiptId]);
   const printSystemReceipt = async () => {
     if (!order) return;
     setSystemPrintError("");
@@ -68,10 +68,11 @@ export function ReceiptPrint({ receiptId }: { receiptId: string }) {
   const total = Number(order.totalAmount);
   const balance = Math.max(0, total - paid);
   const change = Math.max(0, paid - total);
+  const thermalPrintClosesTable = isWaiter && order.status === "OPEN" && !order.tableClosedAt;
   return (
     <main className="receipt-page" style={{ "--receipt-paper-width": `${printerConfig?.paperWidth ?? 58}mm` } as CSSProperties}>
-      <div className="receipt-print-actions print-hidden"><Link className="btn secondary" href={backPath}>{backPath === "/pos" ? "Back to POS" : "Back to bills"}</Link>{isWaiter && order.status === "OPEN" && !order.tableClosedAt && <button className="btn secondary" disabled={closeMutation.isPending} onClick={() => closeMutation.mutate(order.id)} type="button">{closeMutation.isPending ? "Closing table…" : "Close table"}</button>}{isWaiter && order.tableClosedAt && <span className="muted">Table closed · bill remains pending cashier checkout</span>}{isWaiter && order.status === "CLOSED" && <span className="muted">Bill settled</span>}{pathname.startsWith("/cashier/") && order.status === "OPEN" && <Link className="btn secondary" href={`/cashier/pos?billId=${encodeURIComponent(order.id)}`}>Settle in POS</Link>}<button className="btn secondary" onClick={() => void printSystemReceipt()} type="button">System Print</button><button className="btn" disabled={thermalState === "printing" || !printerConfig || printerConfig.connection === "BROWSER"} onClick={() => { if (!printerConfig) return; setThermalError(""); enqueuePrint(order.id, toReceiptData(order, settings), printerConfig, updateThermalState); }} type="button">{thermalState === "printing" ? "Printing…" : "Thermal Print"}</button></div>
-      <p className="muted print-hidden">System Print opens the browser/OS dialog. Thermal Print sends ESC/POS through the selected printer connection.</p>
+      <div className="receipt-print-actions print-hidden"><Link className="btn secondary" href={backPath}>{backPath === "/pos" ? "Back to POS" : "Back to bills"}</Link>{isWaiter && order.tableClosedAt && <span className="muted">Table closed · bill remains pending cashier checkout</span>}{isWaiter && order.status === "CLOSED" && <span className="muted">Bill settled</span>}{pathname.startsWith("/cashier/") && order.status === "OPEN" && <Link className="btn secondary" href={`/cashier/pos?billId=${encodeURIComponent(order.id)}`}>Settle in POS</Link>}<button className="btn secondary" onClick={() => void printSystemReceipt()} type="button">System Print</button><button className="btn" disabled={thermalState === "printing" || closeMutation.isPending || !printerConfig || printerConfig.connection === "BROWSER"} onClick={() => { if (!printerConfig) return; setThermalError(""); if (thermalPrintClosesTable) closeMutation.mutate(order.id); enqueuePrint(order.id, toReceiptData(order, settings), printerConfig, updateThermalState); }} type="button">{thermalState === "printing" ? "Printing…" : thermalPrintClosesTable ? "Thermal Print & Close Table" : "Thermal Print"}</button></div>
+      <p className="muted print-hidden">System Print opens the browser/OS dialog. Thermal Print sends ESC/POS through the selected printer connection.{thermalPrintClosesTable ? " Clicking Thermal Print also closes the table; the bill stays open for cashier checkout." : ""}</p>
       {systemPrintError && <p className="error print-hidden" role="alert">{systemPrintError}</p>}
       {thermalState && <p className={thermalState === "failed" ? "error print-hidden" : "muted print-hidden"} role="status">{thermalState === "printed" ? "Print command sent. Confirm that paper came out." : thermalState === "failed" ? `Print failed. ${thermalError}` : "Sending to printer…"}{thermalState === "failed" && printerConfig && <button className="btn secondary" onClick={() => { setThermalError(""); enqueuePrint(`${order.id}:${Date.now()}`, toReceiptData(order, settings), printerConfig, updateThermalState); }} type="button">Retry Print</button>}</p>}
       {closeMutation.error && <p className="error print-hidden" role="alert">{closeMutation.error instanceof Error ? closeMutation.error.message : "Unable to close table."}</p>}
