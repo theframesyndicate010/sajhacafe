@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
@@ -9,6 +9,8 @@ import { UpdateSettingsDto } from './dto/update-settings.dto';
 
 const MAX_LOGO_BYTES = 700 * 1024;
 const MAX_LOGO_DATA_URL = 960_000;
+const RESET_SECTIONS = ['bills', 'menu', 'tables', 'duePayments', 'inventory', 'reports'] as const;
+type ResetSection = (typeof RESET_SECTIONS)[number];
 
 @Controller('settings')
 @UseGuards(AuthGuard, PermissionGuard)
@@ -41,6 +43,75 @@ export class SettingsController {
       // Spread first so the required columns below always win over the payload.
       create: { ...dto, tenantId, businessName: dto.businessName ?? (await this.fallbackName(tenantId)) },
       update: dto,
+    });
+  }
+
+  @Post('reset')
+  @RequirePermission('users.manage')
+  async reset(@Body() body: { sections?: unknown }, @Req() request: Request) {
+    const sections = body?.sections;
+    if (!Array.isArray(sections) || !sections.length || sections.some((section) => !RESET_SECTIONS.includes(section as ResetSection))) {
+      throw new BadRequestException('Select at least one valid section to reset');
+    }
+
+    const selected = new Set(sections as ResetSection[]);
+    const tenantId = request.tenantId!;
+    return this.prisma.$transaction(async (tx) => {
+      const clearOrders = async (billIds?: string[]) => {
+        const where = { tenantId, ...(billIds ? { billId: { in: billIds } } : {}) };
+        const orders = await tx.order.findMany({ where, select: { id: true } });
+        const orderIds = orders.map(({ id }) => id);
+        if (!orderIds.length) return;
+        await tx.customerLedgerEntry.deleteMany({ where: { tenantId, orderId: { in: orderIds } } });
+        await tx.refund.deleteMany({ where: { tenantId, orderId: { in: orderIds } } });
+        await tx.payment.deleteMany({ where: { tenantId, orderId: { in: orderIds } } });
+        await tx.kotItem.deleteMany({ where: { tenantId, kot: { orderId: { in: orderIds } } } });
+        await tx.kot.deleteMany({ where: { tenantId, orderId: { in: orderIds } } });
+        await tx.orderItem.deleteMany({ where: { tenantId, orderId: { in: orderIds } } });
+        await tx.order.deleteMany({ where: { id: { in: orderIds }, tenantId } });
+        if (billIds) await tx.bill.deleteMany({ where: { tenantId, id: { in: billIds } } });
+      };
+
+      if (selected.has('reports')) {
+        await clearOrders();
+        await tx.bill.deleteMany({ where: { tenantId } });
+        await tx.purchaseItem.deleteMany({ where: { tenantId } });
+        await tx.purchase.deleteMany({ where: { tenantId } });
+        await tx.expense.deleteMany({ where: { tenantId } });
+        await tx.customerLedgerEntry.deleteMany({ where: { tenantId } });
+        await tx.stockMovement.deleteMany({ where: { tenantId } });
+      } else {
+        if (selected.has('bills')) {
+          await clearOrders();
+          await tx.bill.deleteMany({ where: { tenantId } });
+        } else if (selected.has('duePayments')) {
+          const openBills = await tx.bill.findMany({
+            where: { tenantId, status: 'OPEN' },
+            select: { id: true, orders: { select: { totalAmount: true, payments: { where: { status: 'COMPLETED' }, select: { amount: true } } } } },
+          });
+          const dueBillIds = openBills.filter((bill) => bill.orders.some((order) =>
+            Number(order.totalAmount) - order.payments.reduce((sum, payment) => sum + Number(payment.amount), 0) > 0.009,
+          )).map(({ id }) => id);
+          await clearOrders(dueBillIds);
+        }
+
+      }
+
+      if (selected.has('menu')) {
+        await tx.menuItem.updateMany({ where: { tenantId }, data: { isActive: false } });
+        await tx.category.updateMany({ where: { tenantId }, data: { isActive: false } });
+      }
+      if (selected.has('tables')) {
+        await tx.order.updateMany({ where: { tenantId }, data: { tableId: null } });
+        await tx.bill.updateMany({ where: { tenantId }, data: { tableId: null } });
+        await tx.restaurantTable.deleteMany({ where: { tenantId } });
+      }
+      if (selected.has('inventory')) {
+        await tx.stockMovement.deleteMany({ where: { tenantId } });
+        await tx.inventoryItem.updateMany({ where: { tenantId }, data: { currentQuantity: 0 } });
+      }
+
+      return { reset: [...selected] };
     });
   }
 

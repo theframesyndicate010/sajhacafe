@@ -3,12 +3,22 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type RestaurantSettings } from "@/lib/api/client";
+import { useAuth } from "@/lib/auth";
 import { PrinterSettings } from "@/components/settings/printer-settings";
 
 /** Mirrors the `businessName` column width and the API's MaxLength check. */
 const BUSINESS_NAME_MAX = 150;
 /** Mirrors the `taxNumber` column width and the API's MaxLength check. */
 const TAX_NUMBER_MAX = 50;
+
+const RESET_OPTIONS = [
+  { id: "bills", title: "Bills", detail: "Delete bills, orders, payments, and refunds for this cafe." },
+  { id: "menu", title: "Menu", detail: "Deactivate all menu items and categories while preserving past bill details." },
+  { id: "tables", title: "Tables", detail: "Remove table setup. Existing orders are kept and detached from tables." },
+  { id: "duePayments", title: "Due payments", detail: "Delete open bills and their orders when any balance is outstanding." },
+  { id: "inventory", title: "Inventory", detail: "Set every stock quantity to zero and clear stock movement history." },
+  { id: "reports", title: "Reports", detail: "Clear sales, payment, purchase, expense, customer due, and stock movement records." },
+] as const;
 
 type SettingsFormState = {
   businessName: string;
@@ -31,9 +41,18 @@ const toFormState = (settings: RestaurantSettings): SettingsFormState => ({
 
 export function OrganizationSettingsForm() {
   const queryClient = useQueryClient();
+  const { hasPermission } = useAuth();
   const query = useQuery({ queryKey: ["settings"], queryFn: api.settings.get });
   const [settings, setSettings] = useState<SettingsFormState>({ businessName: "", address: "", phone: "", email: "", taxNumber: "", logo: null });
   const [logoError, setLogoError] = useState("");
+  const [resetSections, setResetSections] = useState<string[]>([]);
+  const resetMutation = useMutation({
+    mutationFn: () => api.settings.reset(resetSections),
+    onSuccess: async () => {
+      setResetSections([]);
+      await queryClient.invalidateQueries();
+    },
+  });
   const mutation = useMutation({
     mutationFn: () => api.settings.update(settings),
     onSuccess: (next) => {
@@ -55,6 +74,12 @@ export function OrganizationSettingsForm() {
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     mutation.mutate();
+  };
+
+  const resetSelected = () => {
+    if (!resetSections.length || resetMutation.isPending) return;
+    const names = RESET_OPTIONS.filter(({ id }) => resetSections.includes(id)).map(({ title }) => title).join(", ");
+    if (window.confirm(`Permanently reset ${names}? This cannot be undone.`)) resetMutation.mutate();
   };
 
   const selectLogo = (file?: File) => {
@@ -103,6 +128,28 @@ export function OrganizationSettingsForm() {
         <button className="btn" disabled={query.isLoading || mutation.isPending} type="submit">{mutation.isPending ? "Saving…" : "Save cafe setup"}</button>
       </form>
       <PrinterSettings />
+      {hasPermission("users.manage") && <section className="card admin-reset-panel" aria-labelledby="admin-reset-heading">
+        <header>
+          <p className="eyebrow">MAIN ADMIN</p>
+          <h2 id="admin-reset-heading">Reset cafe data</h2>
+          <p className="muted">Choose each section to reset. These changes apply only to the active cafe.</p>
+        </header>
+        <div className="admin-reset-options">
+          {RESET_OPTIONS.map(({ id, title, detail }) => {
+            const checked = resetSections.includes(id);
+            return <label className={`admin-reset-option${checked ? " selected" : ""}`} key={id}>
+              <input checked={checked} disabled={resetMutation.isPending} onChange={(event) => {
+                setResetSections((current) => event.target.checked ? [...current, id] : current.filter((section) => section !== id));
+                resetMutation.reset();
+              }} type="checkbox" />
+              <span className="admin-reset-option-copy"><strong>{title}</strong><span>{detail}</span></span>
+            </label>;
+          })}
+        </div>
+        {resetMutation.isSuccess && <p className="organization-settings-saved" role="status">Selected cafe data was reset.</p>}
+        {resetMutation.error && <p className="error" role="alert">{resetMutation.error instanceof Error ? resetMutation.error.message : "Unable to reset selected data."}</p>}
+        <button className="btn admin-reset-button" disabled={!resetSections.length || resetMutation.isPending} onClick={resetSelected} type="button">{resetMutation.isPending ? "Resetting…" : `Reset selected${resetSections.length ? ` (${resetSections.length})` : ""}`}</button>
+      </section>}
     </section>
   );
 }

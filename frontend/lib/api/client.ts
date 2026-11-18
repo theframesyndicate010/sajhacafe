@@ -79,7 +79,7 @@ export const api = {
   startKot: (id: string) => request(`/kots/${id}/start`, { method: "POST" }),
   readyKot: (id: string) => request(`/kots/${id}/ready`, { method: "POST" }),
   completeKot: (id: string) => request(`/kots/${id}/complete`, { method: "POST" }),
-  settings: { get: () => request<RestaurantSettings>("/settings"), update: (body: Partial<Pick<RestaurantSettings, "businessName" | "address" | "phone" | "email" | "logo" | "taxNumber" | "taxEnabled" | "taxRate" | "taxInclusive" | "timezone">>) => request<RestaurantSettings>("/settings", { method: "PATCH", body: JSON.stringify(body) }) },
+  settings: { get: () => request<RestaurantSettings>("/settings"), update: (body: Partial<Pick<RestaurantSettings, "businessName" | "address" | "phone" | "email" | "logo" | "taxNumber" | "taxEnabled" | "taxRate" | "taxInclusive" | "timezone">>) => request<RestaurantSettings>("/settings", { method: "PATCH", body: JSON.stringify(body) }), reset: (sections: string[]) => request<{ reset: string[] }>("/settings/reset", { method: "POST", body: JSON.stringify({ sections }) }) },
   users: {
     list: () => request<ManagedUser[]>("/users"),
     roles: () => request<ManagedRole[]>("/users/roles"),
