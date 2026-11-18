@@ -57,11 +57,28 @@ export class SettingsController {
     const selected = new Set(sections as ResetSection[]);
     const tenantId = request.tenantId!;
     return this.prisma.$transaction(async (tx) => {
+      const releaseTables = async (tableIds?: string[]) => {
+        await tx.restaurantTable.updateMany({
+          where: { tenantId, status: 'OCCUPIED', ...(tableIds ? { id: { in: tableIds } } : {}) },
+          data: { status: 'AVAILABLE' },
+        });
+      };
+
       const clearOrders = async (billIds?: string[]) => {
         const where = { tenantId, ...(billIds ? { billId: { in: billIds } } : {}) };
+        const tableIds = billIds
+          ? (await tx.bill.findMany({ where: { tenantId, id: { in: billIds } }, select: { tableId: true } }))
+              .flatMap(({ tableId }) => tableId ? [tableId] : [])
+          : [];
         const orders = await tx.order.findMany({ where, select: { id: true } });
         const orderIds = orders.map(({ id }) => id);
-        if (!orderIds.length) return;
+        if (!orderIds.length) {
+          if (billIds?.length) {
+            await tx.bill.deleteMany({ where: { tenantId, id: { in: billIds } } });
+            await releaseTables(tableIds);
+          }
+          return;
+        }
         await tx.customerLedgerEntry.deleteMany({ where: { tenantId, orderId: { in: orderIds } } });
         await tx.refund.deleteMany({ where: { tenantId, orderId: { in: orderIds } } });
         await tx.payment.deleteMany({ where: { tenantId, orderId: { in: orderIds } } });
@@ -69,12 +86,16 @@ export class SettingsController {
         await tx.kot.deleteMany({ where: { tenantId, orderId: { in: orderIds } } });
         await tx.orderItem.deleteMany({ where: { tenantId, orderId: { in: orderIds } } });
         await tx.order.deleteMany({ where: { id: { in: orderIds }, tenantId } });
-        if (billIds) await tx.bill.deleteMany({ where: { tenantId, id: { in: billIds } } });
+        if (billIds) {
+          await tx.bill.deleteMany({ where: { tenantId, id: { in: billIds } } });
+          await releaseTables(tableIds);
+        }
       };
 
       if (selected.has('reports')) {
         await clearOrders();
         await tx.bill.deleteMany({ where: { tenantId } });
+        await releaseTables();
         await tx.purchaseItem.deleteMany({ where: { tenantId } });
         await tx.purchase.deleteMany({ where: { tenantId } });
         await tx.expense.deleteMany({ where: { tenantId } });
@@ -84,6 +105,7 @@ export class SettingsController {
         if (selected.has('bills')) {
           await clearOrders();
           await tx.bill.deleteMany({ where: { tenantId } });
+          await releaseTables();
         } else if (selected.has('duePayments')) {
           const openBills = await tx.bill.findMany({
             where: { tenantId, status: 'OPEN' },
